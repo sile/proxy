@@ -142,18 +142,11 @@ invoke_handle_up(RealPid, {Module, State0}) ->
     end.
 
 invoke_handle_down(ExitReason, {Module, State0}) ->
-    case Module:handle_down(ExitReason, {Module, State0}) of
+    case Module:handle_down(ExitReason, State0) of
         {stop, Reason, State1}   -> {{stop, Reason}, {Module, State1}};
         {ok, State1}             -> {{ok, ExitReason}, {Module, State1}};
         {restart, State1}        -> {{restart, 0}, {Module, State1}};
         {restart, After, State1} -> {{restart, After}, {Module, State1}};
-        {remove_proxy, State1}   -> _ = remove_proxy({Module, State1}), {{ok, ExitReason}};
-        {swap_proxy, SwapReason, State1, NewModule, NewArg} ->
-            case swap_proxy(SwapReason, {Module, State1}, NewModule, NewArg) of
-                {stop, Reason} -> {{stop, Reason}};
-                ignore         -> {{ok, ExitReason}};
-                {ok, NewProxy} -> {{ok, ExitReason}, NewProxy}
-            end;
         Other -> error({unexpected_return, {Module, handle_down, [ExitReason, State0]}, Other}, [ExitReason, {Module, State0}])
     end.
 

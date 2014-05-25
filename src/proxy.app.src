@@ -8,5 +8,11 @@
                   kernel,
                   stdlib
                  ]},
-  {env, []}
+  {env,
+   [
+    {built_in_proxy,
+     [
+      {restart, proxy_restart}
+     ]}
+   ]}
  ]}.
