@@ -60,7 +60,7 @@ spawn_opt(Module, Function, Args, ProxySpecs, SpawnOpts) ->
 start(Module, Function, Args, ProxySpecs) ->
     Ref  = make_ref(),
     From = {self(), Ref},
-    StartFunc = proxy_start_func:make_start_fun(Module, Module, Function, Args),
+    StartFunc = proxy_start_func:make_start_func(Module, Function, Args),
     Pid = erlang:spawn(proxy_server, start_loop, [From, StartFunc, ProxySpecs]),
     Monitor = erlang:monitor(process, Pid),
     receive
@@ -73,7 +73,7 @@ start(Module, Function, Args, ProxySpecs) ->
 start_link(Module, Function, Args, ProxySpecs) ->
     Ref  = make_ref(),
     From = {self(), Ref},
-    StartFunc = proxy_start_func:make_start_fun(Module, Module, Function, Args),
+    StartFunc = proxy_start_func:make_start_func(Module, Function, Args),
     Pid = erlang:spawn_link(proxy_server, start_loop, [From, StartFunc, ProxySpecs]),
     Monitor = erlang:monitor(process, Pid),
     receive
