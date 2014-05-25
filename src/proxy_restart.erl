@@ -46,6 +46,8 @@ handle_up(_Pid, State) ->
     Timestamps1 = delete_old_timestamp(Now, State#?STATE.max_time, Timestamps0),
     {ok, State#?STATE{start_timestamps = Timestamps1}}.
 
+handle_message({'EXIT', _Pid, Reason}, State) ->
+    {stop, Reason, State};
 handle_message(Message, State) ->
     {ok, Message, State}.
 
