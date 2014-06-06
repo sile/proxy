@@ -17,6 +17,10 @@
          init/1, handle_arg/2, handle_up/2, handle_message/2, handle_down/2, terminate/2
         ]).
 
+%%----------------------------------------------------------------------------------------------------------------------
+%% Macros & Records & Types
+%%----------------------------------------------------------------------------------------------------------------------
+-define(SEND_AFTER_MAX, 4294967295).
 -define(STATE, ?MODULE).
 
 -record(?STATE,
@@ -52,12 +56,11 @@ handle_arg(Args, State) ->
     case Delta =< 0 of
         true  ->
             StopAfter = max(0, timer:now_diff(State#?STATE.stop_time, os:timestamp()) div 1000),
-            TimerRef = erlang:send_after(StopAfter, self(), {?MODULE, State#?STATE.tag, stop}),
+            TimerRef = send_after(StopAfter, State, {?MODULE, State#?STATE.tag, stop}),
             _ = logi:info("stop after ~p ms", [StopAfter]),
             {ok, Args, State#?STATE{stop_ref = TimerRef}};
         false ->
-            %% XXX: Delta は erlang:send_afterの制限時間以内だと仮定している
-            TimerRef = erlang:send_after(Delta div 1000, self(), {?MODULE, State#?STATE.tag, start}),
+            TimerRef = send_after(Delta div 1000, State, {?MODULE, State#?STATE.tag, start}),
             _ = logi:info("start after ~p ms", [Delta div 1000]),
             {hibernate, Args, State#?STATE{start_ref = TimerRef}}
     end.
@@ -73,12 +76,19 @@ handle_message({?MODULE, Tag, start}, State = #?STATE{tag = Tag}) ->
         infinity -> {ignore, State#?STATE{stop_ref = undefined}};
         _        ->
             StopAfter = max(0, timer:now_diff(State#?STATE.stop_time, os:timestamp()) div 1000),
-            TimerRef = erlang:send_after(StopAfter, self(), {?MODULE, State#?STATE.tag, stop}),
+            TimerRef = send_after(StopAfter, State, {?MODULE, State#?STATE.tag, stop}),
             _ = logi:info("stop after ~p ms", [StopAfter]),
             {ignore, State#?STATE{start_ref = undefined, stop_ref = TimerRef}}
     end;
 handle_message({?MODULE, Tag, stop}, State = #?STATE{tag = Tag}) ->
     {stop, {shutdown, timeout}, State#?STATE{stop_ref = undefined}};
+handle_message({?MODULE, Tag, {send_after, Time, Msg}}, State = #?STATE{tag = Tag}) ->
+    TimerRef = send_after(Time, State, Msg),
+    State2 = case Msg of
+                 {_, _, start} -> State#?STATE{start_ref = TimerRef};
+                 {_, _, stop}  -> State#?STATE{stop_ref = TimerRef}
+             end,
+    {ignore, State2};
 handle_message(Message, State) ->
     {ok, Message, State}.
 
@@ -89,3 +99,13 @@ handle_down(_Reason, State) ->
 %% @private
 terminate(_Reason, _State) ->
     ok.
+
+%%----------------------------------------------------------------------------------------------------------------------
+%% Internal Functions
+%%----------------------------------------------------------------------------------------------------------------------
+-spec send_after(non_neg_integer(), #?STATE{}, term()) -> reference().
+send_after(Time, State, Msg) ->
+    case Time =< ?SEND_AFTER_MAX of
+        true  -> erlang:send_after(Time, self(), Msg);
+        false -> erlang:send_after(?SEND_AFTER_MAX, self(), {?MODULE, State#?STATE.tag, {send_after, Time - ?SEND_AFTER_MAX, Msg}})
+    end.            
