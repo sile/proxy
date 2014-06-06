@@ -13,7 +13,7 @@
         {
           tag = make_ref() :: reference(),
           start_func :: start_func(),
-          real_pid :: pid(),
+          real_pid :: pid() | hibernate,
           driver :: proxy_driver:state()
         }).
 
@@ -33,7 +33,7 @@ start_loop(From, StartFunc0, ProxySpecs) ->
             {RealPid, StartFunc1, Driver1} = start_real_process(StartFunc0, Driver0),
             _ = case From of
                     undefined -> ok;
-                    _         -> reply(From, {ok, RealPid})
+                    _         -> reply(From, {ok, self()})
                 end,
             State = #state{
                        start_func = StartFunc1,
@@ -58,6 +58,19 @@ loop(State = #state{tag = Tag, real_pid = RealPid}) ->
         {Tag, restart} ->
             State2 = restart_real_process(State),
             ?MODULE:loop(State2);
+        {'$proxy_call', From, get_real_process} ->
+            _ = reply(From, State#state.real_pid),
+            ?MODULE:loop(State);
+        {'__SYSTEM__', 'RESUME'} ->
+            %% TODO: システムメッセージのハンドリングを仕組みはもっとちゃんとする
+            case State#state.real_pid =:= hibernate of
+                true ->
+                    State2 = restart_real_process(State),
+                    ?MODULE:loop(State2);
+                false ->
+                    _ = logi:warning("real process is already running"),
+                    ?MODULE:loop(State)
+            end;
         Message ->
             {Result, Driver0} = proxy_driver:handle_message(Message, State#state.driver),
             State2 = State#state{driver = Driver0},
@@ -78,25 +91,35 @@ restart_real_process(State) ->
     State#state{real_pid = RealPid, driver = Driver, start_func = StartFunc}.
 
 start_real_process(StartFunc0, Driver0) ->
-    StartFunc1 =
-        case proxy_start_func:get_args(StartFunc0) of
-            error       ->
-                Driver1 = Driver0,
-                StartFunc0;
-            {ok, Args0} ->
-                {HandleArgResult, Driver1} = proxy_driver:handle_arg(Args0, Driver0),
-                case HandleArgResult of
-                    {stop, Reason} -> terminate(Reason, Driver1);
-                    {ok, Args1}    -> proxy_start_func:set_args(Args1, StartFunc0)
-                end
-        end,
-    case proxy_start_func:start_link(StartFunc1) of
-        {error, Reason2} -> terminate(Reason2, Driver1);
-        {ok, RealPid}    ->
-            {HandleUpResult, Driver2} = proxy_driver:handle_up(RealPid, Driver1),
-            case HandleUpResult of
-                {stop, Reason3} -> terminate(Reason3, Driver2);
-                ok              -> {RealPid, StartFunc1, Driver2}
+    {DoStart, StartFunc1, Driver1} = ready_start_func(StartFunc0, Driver0),
+    case DoStart of
+        false -> {hibernate, StartFunc1, Driver1};
+        true  ->
+            case proxy_start_func:start_link(StartFunc1) of
+                {error, Reason2} -> terminate(Reason2, Driver1);
+                {ok, RealPid}    ->
+                    {HandleUpResult, Driver2} = proxy_driver:handle_up(RealPid, Driver1),
+                    case HandleUpResult of
+                        {stop, Reason3} -> terminate(Reason3, Driver2);
+                        ok              -> {RealPid, StartFunc1, Driver2}
+                    end
+            end
+    end.
+
+ready_start_func(StartFunc0, Driver0) ->
+    case proxy_start_func:get_args(StartFunc0) of
+        error       -> {true, StartFunc0, Driver0};
+        {ok, Args0} ->
+            {HandleArgResult, Driver1} = proxy_driver:handle_arg(Args0, Driver0),
+            case HandleArgResult of
+                {stop, Reason}   -> terminate(Reason, Driver1);
+                {ok, Args1}      ->
+                    StartFunc1 = proxy_start_func:set_args(Args1, StartFunc0),
+                    {true, StartFunc1, Driver1};
+                {hibernate, Args1} ->
+                    %% TODO: arg無しの場合のでもここに来れるようにする (handle_argを拡張)
+                    StartFunc1 = proxy_start_func:set_args(Args1, StartFunc0),
+                    {false, StartFunc1, Driver1}
             end
     end.
 

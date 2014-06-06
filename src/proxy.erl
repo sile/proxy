@@ -1,12 +1,21 @@
+%% @copyright 2014 Takeru Ohta <phjgt308@gmail.com>
+%%
+%% @doc proxyサーバを扱うためのインターフェースモジュール
 -module(proxy).
 
+%%----------------------------------------------------------------------------------------------------------------------
+%% Exported API
+%%----------------------------------------------------------------------------------------------------------------------
 -export([
-         spawn/2,
-         spawn/4,
-         spawn_opt/3,
-         spawn_opt/5,
+         %% TODO: call, notify, add_proxy, swap_proxy, delete_proxy, which_proxies
+         spawn/2, spawn/4,
+         spawn_opt/3, spawn_opt/5,
          start/4,
          start_link/4
+        ]).
+
+-export([
+         call/2
         ]).
 
 -export_type([
@@ -15,6 +24,9 @@
               proxy_state/0
              ]).
 
+%%----------------------------------------------------------------------------------------------------------------------
+%% Behaviour Callbacks
+%%----------------------------------------------------------------------------------------------------------------------
 -callback init(proxy_arg()) ->
     {stop, term()} | ignore | {ok, proxy_state()}.
 
@@ -39,9 +51,25 @@
 
 -callback terminate(term(), proxy_state()) -> any().
 
+%%----------------------------------------------------------------------------------------------------------------------
+%% Types
+%%----------------------------------------------------------------------------------------------------------------------
 -type proxy_spec() :: {module(), proxy_arg()}.
 -type proxy_state() :: term().
 -type proxy_arg() :: term().
+
+%%----------------------------------------------------------------------------------------------------------------------
+%% Exported Functions
+%%----------------------------------------------------------------------------------------------------------------------
+call(ProxyPid, Msg) ->
+    Tag = make_ref(),
+    From = {self(), Tag},
+    _ = ProxyPid ! {'$proxy_call', From, Msg},
+    receive
+        {Tag, Response} -> Response
+    after 50 ->
+            error %exit({timeout, call, [ProxyPid, Msg]})
+    end.
 
 spawn(Fun, ProxySpecs) ->
     ?MODULE:spawn_opt(Fun, ProxySpecs, []).

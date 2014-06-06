@@ -116,6 +116,7 @@ invoke_init({Module, Arg}) ->
 invoke_handle_arg(Arg0, {Module, State0}) ->
     case Module:handle_arg(Arg0, State0) of
         {stop, Reason, State1}       -> {{stop, Reason}, {Module, State1}};
+        {hibernate, Arg1, State1}    -> {{hibernate, Arg1}, {Module, State1}};
         {ok, Arg1, State1}           -> {{ok, Arg1}, {Module, State1}};
         {remove_proxy, Arg1, State1} -> _ = remove_proxy({Module, State1}), {{ok, Arg1}};
         {swap_proxy, Arg1, SwapReason, State1, NewModule, NewArg} ->
