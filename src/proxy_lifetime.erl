@@ -55,10 +55,14 @@ handle_arg(Args, State) ->
     Delta = timer:now_diff(State#?STATE.start_time, now()),
     case Delta =< 0 of
         true  ->
-            StopAfter = max(0, timer:now_diff(State#?STATE.stop_time, os:timestamp()) div 1000),
-            TimerRef = send_after(StopAfter, State, {?MODULE, State#?STATE.tag, stop}),
-            _ = logi:info("stop after ~p ms", [StopAfter]),
-            {ok, Args, State#?STATE{stop_ref = TimerRef}};
+            case State#?STATE.stop_time of
+                infinity -> {ok, Args, State};
+                _        ->
+                    StopAfter = max(0, timer:now_diff(State#?STATE.stop_time, os:timestamp()) div 1000),
+                    TimerRef = send_after(StopAfter, State, {?MODULE, State#?STATE.tag, stop}),
+                    _ = logi:info("stop after ~p ms", [StopAfter]),
+                    {ok, Args, State#?STATE{stop_ref = TimerRef}}
+            end;
         false ->
             TimerRef = send_after(Delta div 1000, State, {?MODULE, State#?STATE.tag, start}),
             _ = logi:info("start after ~p ms", [Delta div 1000]),
