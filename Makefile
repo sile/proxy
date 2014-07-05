@@ -29,5 +29,5 @@ start: compile
 	touch .dialyzer.plt
 	dialyzer --build_plt --plt .dialyzer.plt --apps erts kernel stdlib
 
-dialyze: .dialyzer.plt
+dialyze: .dialyzer.plt compile
 	dialyzer --plt .dialyzer.plt -r ebin
