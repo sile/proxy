@@ -49,3 +49,22 @@ spawn_test_() ->
               end
       end}
     ].
+
+multi_proxy_test_() ->
+    [
+     {"複数のプロキシが登録できる",
+      fun () ->
+              Retry    = {proxy_restart, [{max_restart, 1000}]},
+              LifeTime = {proxy_lifetime, [{start_time, now()}]},
+              ProxyList = [Retry, LifeTime],
+
+              %% このテストでは、複数プロキシを登録しても正常に起動できるかどうかだけを確認
+              %% (それぞれがちゃんと機能しているかは確認しない)
+              Parent = self(),
+              ProxyPid = proxy:spawn(fun () -> receive ping -> Parent ! pong end end, ProxyList),
+              ProxyPid ! ping,
+              receive
+                  pong -> ?assert(true)
+              end
+      end}
+    ].

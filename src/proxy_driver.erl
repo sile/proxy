@@ -62,7 +62,7 @@ terminate(Reason, State) ->
 invoke_proxy_list(Fun, Arg, State) ->
     {Result, ProxyList} =
         lists:foldl(
-          fun (Proxy0, {{ok, Arg0}, Acc}) ->
+          fun (Proxy0, {{_Result, Arg0}, Acc}) ->
                   try Fun(Arg0, Proxy0) of
                       {Result}         -> {Result, Acc};
                       {Result, Proxy1} -> {Result, [Proxy1 | Acc]}
