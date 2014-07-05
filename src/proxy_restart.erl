@@ -14,6 +14,7 @@
                 | {max_time, timeout()}             % default: infinity
                 | {interval, non_neg_integer()}     % default: 0
                 | {only_error, boolean()}.          % default: false
+%% TODO: only_error以外にもっと細かい粒度で再起動ポリシーを制御する方法を提供する
 
 -define(STATE, ?MODULE).
 
@@ -22,6 +23,7 @@
           max_restart           :: non_neg_integer(),
           max_time              :: timeout(),
           interval              :: non_neg_integer(),
+          max_interval = 60 * 1000 :: non_neg_integer(), % TODO: もっと細かく設定可能に & 制御可能に
           only_error            :: boolean(),
           start_timestamps = queue:new() :: queue:queue(erlang:timestamp())
         }).
@@ -52,10 +54,12 @@ handle_message(Message, State) ->
     {ok, Message, State}.
 
 handle_down(Reason, State) ->
+    #?STATE{interval = Interval} = State,
+    NextInterval = min(max(1, Interval) * 2, State#?STATE.max_interval),
     {Result, State2} = is_restarting_needed(Reason, State),
     case Result of
         false -> {ok, State2};
-        true  -> {restart, State2#?STATE.interval, State2}
+        true  -> {restart, Interval, State2#?STATE{interval = NextInterval}}
     end.
 
 terminate(_Reason, _State) ->

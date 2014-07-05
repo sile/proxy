@@ -62,8 +62,8 @@ terminate(Reason, State) ->
 invoke_proxy_list(Fun, Arg, State) ->
     {Result, ProxyList} =
         lists:foldl(
-          fun (Proxy0, {{_Result, Arg0}, Acc}) ->
-                  try Fun(Arg0, Proxy0) of
+          fun (Proxy0, {{PrevResult, Arg0}, Acc}) ->
+                  try Fun(PrevResult, Arg0, Proxy0) of
                       {Result}         -> {Result, Acc};
                       {Result, Proxy1} -> {Result, [Proxy1 | Acc]}
                   catch
@@ -77,12 +77,12 @@ invoke_proxy_list(Fun, Arg, State) ->
 -spec handle_arg(term(), state()) -> {Result, state()} when
       Result :: {ok, term()} | {stop, Reason::term()}.
 handle_arg(Arg, State) ->
-    invoke_proxy_list(fun invoke_handle_arg/2, Arg, State).
+    invoke_proxy_list(fun invoke_handle_arg/3, Arg, State).
 
 -spec handle_up(pid(), state()) -> {Result, state()} when
       Result :: ok | {stop, Reason::term()}.
 handle_up(RealPid, State) ->
-    {Result, State2} = invoke_proxy_list(fun invoke_handle_up/2, RealPid, State),
+    {Result, State2} = invoke_proxy_list(fun invoke_handle_up/3, RealPid, State),
     case Result of
         {ok, _} -> {ok, State2};
         _       -> {Result, State2}
@@ -91,13 +91,13 @@ handle_up(RealPid, State) ->
 -spec handle_message(term(), state()) -> {Result, state()} when
       Result :: {ok, term()} | ignore | {stop, Reason::term()}.
 handle_message(Message, State) ->
-    invoke_proxy_list(fun invoke_handle_message/2, Message, State).
+    invoke_proxy_list(fun invoke_handle_message/3, Message, State).
 
 -spec handle_down(term(), state()) -> {Result, state()} when
       Result :: ok
               | {restart, After::non_neg_integer()}.
 handle_down(Reason, State) ->
-    {Result, State2} = invoke_proxy_list(fun invoke_handle_down/2, Reason, State),
+    {Result, State2} = invoke_proxy_list(fun invoke_handle_down/3, Reason, State),
     case Result of
         {restart, _} -> {Result, State2};
         _            -> {ok, State2}
@@ -112,8 +112,7 @@ invoke_init({Module, Arg}) ->
         Other          -> error({unexpected_return, {Module, init, [Arg]}, Other}, [Module, Arg])
     end.
 
-%%-spec invoke_handle_arg(term(), proxy()) -> {ok, term(), proxy()} | {stop, term()} | {stop, term(), proxy()} | {remove_proxy, term()}.
-invoke_handle_arg(Arg0, {Module, State0}) ->
+invoke_handle_arg(_Prev, Arg0, {Module, State0}) ->
     case Module:handle_arg(Arg0, State0) of
         {stop, Reason, State1}       -> {{stop, Reason}, {Module, State1}};
         {hibernate, Arg1, State1}    -> {{hibernate, Arg1}, {Module, State1}};
@@ -128,7 +127,7 @@ invoke_handle_arg(Arg0, {Module, State0}) ->
         Other -> error({unexpected_return, {Module, handle_arg, [Arg0, State0]}, Other}, [Arg0, {Module, State0}])
     end.
 
-invoke_handle_up(RealPid, {Module, State0}) ->
+invoke_handle_up(_Prev, RealPid, {Module, State0}) ->
     case Module:handle_up(RealPid, State0) of
         {stop, Reason, State1} -> {{stop, Reason}, {Module, State1}};
         {ok, State1}           -> {{ok, RealPid}, {Module, State1}};
@@ -142,7 +141,9 @@ invoke_handle_up(RealPid, {Module, State0}) ->
         Other -> error({unexpected_return, {Module, handle_up, [RealPid, State0]}, Other}, [RealPid, {Module, State0}])
     end.
 
-invoke_handle_down(ExitReason, {Module, State0}) ->
+invoke_handle_down(restart, After, State) ->
+    {{restart, After}, State};
+invoke_handle_down(_Prev, ExitReason, {Module, State0}) ->
     case Module:handle_down(ExitReason, State0) of
         {stop, Reason, State1}   -> {{stop, Reason}, {Module, State1}};
         {ok, State1}             -> {{ok, ExitReason}, {Module, State1}};
@@ -152,7 +153,7 @@ invoke_handle_down(ExitReason, {Module, State0}) ->
     end.
 
 %%-spec invoke_handle_message(term(), proxy()) -> todo.
-invoke_handle_message(Msg0, {Module, State0}) ->
+invoke_handle_message(_Prev, Msg0, {Module, State0}) ->
     case Module:handle_message(Msg0, State0) of
         {stop, Reason, State1}       -> {{stop, Reason}, {Module, State1}};
         {ok, Msg1, State1}           -> {{ok, Msg1}, {Module, State1}};
