@@ -7,20 +7,20 @@ init:
 	@./rebar get-deps compile
 
 compile:
-	@./rebar compile skip_deps=true
+	@./rebar compile
 
 xref:
-	@./rebar xref skip_deps=true
+	@./rebar xref
 
 clean:
-	@./rebar clean skip_deps=true
+	@./rebar clean
 	@rm -f .dialyze.plt
 
 eunit:
-	@./rebar eunit skip_deps=true
+	@./rebar eunit
 
 edoc:
-	@./rebar doc skip_deps=true
+	@./rebar doc
 
 start: compile
 	@erl -pz ebin deps/*/ebin -eval 'erlang:display({start_app, $(APP), application:ensure_all_started($(APP))}).'
