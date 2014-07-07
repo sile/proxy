@@ -6,13 +6,7 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
-                 ]},
-  {env,
-   [
-    {built_in_proxy,
-     [
-      {restart, proxy_restart}
-     ]}
-   ]}
+                  stdlib,
+                  logi
+                 ]}
  ]}.
