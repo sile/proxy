@@ -153,6 +153,8 @@ invoke_handle_down(_Prev, ExitReason, {Module, State0}) ->
     end.
 
 %%-spec invoke_handle_message(term(), proxy()) -> todo.
+invoke_handle_message(stop, Reason, {Module, State}) ->
+    {{stop, Reason}, {Module, State}};
 invoke_handle_message(_Prev, Msg0, {Module, State0}) ->
     case Module:handle_message(Msg0, State0) of
         {stop, Reason, State1}       -> {{stop, Reason}, {Module, State1}};
