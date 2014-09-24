@@ -71,7 +71,7 @@ loop(State = #state{tag = Tag, real_pid = RealPid}) ->
                     _ = logi:warning("real process is already running"),
                     ?MODULE:loop(State)
             end;
-        Message ->
+        Message -> % TODO: {'$proxy_call', From, term()} が来た時にここで処理することは問題がない?
             {Result, Driver0} = proxy_driver:handle_message(Message, State#state.driver),
             State2 = State#state{driver = Driver0},
             case Result of
@@ -84,7 +84,7 @@ loop(State = #state{tag = Tag, real_pid = RealPid}) ->
                     _ = RealPid ! Message1,
                     ?MODULE:loop(State2)
             end
-    end.                    
+    end.
 
 restart_real_process(State) ->
     {RealPid, StartFunc, Driver} = start_real_process(State#state.start_func, State#state.driver),
