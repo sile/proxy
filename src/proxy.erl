@@ -58,9 +58,28 @@
 -type proxy_state() :: term().
 -type proxy_arg() :: term().
 
+-type spawn_options() :: [spawn_option()].
+
+-type spawn_option() :: link
+                      | monitor
+                      | {priority, priority_level()}
+                      | {fullsweep_after, non_neg_integer()}
+                      | {min_heap_size, non_neg_integer()}
+                      | {min_bin_vheap_size, non_neg_integer()}.
+%% @doc spawn_optのoption
+
+-type priority_level() :: low | normal | high | max.
+
+-type function() :: atom().
+-type args() :: [term()].
+
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported Functions
 %%----------------------------------------------------------------------------------------------------------------------
+%% @doc proxy_server モジュールにメッセージを送る.
+%%
+%% '$proxy_call' メッセージを送ると, proxy_server の Process ID を取得できる.
+-spec call(pid(), '$proxy_call') -> ProxyServerPid::pid() | error.
 call(ProxyPid, Msg) ->
     Tag = make_ref(),
     From = {self(), Tag},
@@ -71,20 +90,30 @@ call(ProxyPid, Msg) ->
             error %exit({timeout, call, [ProxyPid, Msg]})
     end.
 
+%% @doc proxy を挟んで process を生成する.
+-spec spawn(fun(), proxy_spec()) -> pid() | {pid(), reference()}.
 spawn(Fun, ProxySpecs) ->
     ?MODULE:spawn_opt(Fun, ProxySpecs, []).
 
+%% @doc proxy を挟んで process を生成する.
+-spec spawn(module(), function(), args(), proxy_spec()) -> pid() | {pid(), reference()}.
 spawn(Module, Function, Args, ProxySpecs) ->
     ?MODULE:spawn_opt(Module, Function, Args, ProxySpecs, []).
 
+%% @doc proxy を挟み option を指定して process を生成する.
+-spec spawn_opt(fun(), proxy_spec(), spawn_options()) -> pid() | {pid(), reference()}.
 spawn_opt(Fun, ProxySpecs, SpawnOpts) ->
     StartFunc = proxy_start_func:make_spawn_func(Fun, SpawnOpts),
     erlang:spawn_opt(proxy_server, start_loop, [StartFunc, ProxySpecs], SpawnOpts). % TODO: 一部のオプション以外は切り取る
 
+%% @doc proxy を挟み option を指定して process を生成する.
+-spec spawn_opt(module(), function(), args(), proxy_spec(), spawn_options()) -> pid() | {pid(), reference()}.
 spawn_opt(Module, Function, Args, ProxySpecs, SpawnOpts) ->
     StartFunc = proxy_start_func:make_spawn_func(Module, Function, Args, SpawnOpts),
     erlang:spawn_opt(proxy_server, start_loop, [StartFunc, ProxySpecs], SpawnOpts).
 
+%% @doc proxy を挟んで server を起動する.
+-spec start(module(), function(), args(), proxy_spec()) -> {ok, pid()} | {error, Reason::term()}.
 start(Module, Function, Args, ProxySpecs) ->
     Ref  = make_ref(),
     From = {self(), Ref},
@@ -98,6 +127,8 @@ start(Module, Function, Args, ProxySpecs) ->
             Result
     end.
 
+%% @doc proxy を挟んで server を起動する.
+-spec start_link(module(), function(), args(), proxy_spec()) -> {ok, pid()} | {error, Reason::term()}.
 start_link(Module, Function, Args, ProxySpecs) ->
     Ref  = make_ref(),
     From = {self(), Ref},
