@@ -19,10 +19,9 @@
         {
           tag = make_ref() :: reference(),
           start_func :: proxy_start_func:proxy_func(),
-          real_pid :: real_pid(),
+          real_pid :: pid() | hibernate,
           driver :: proxy_driver:state()
         }).
--type real_pid() :: pid() | hibernate.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported Functions
@@ -58,7 +57,7 @@ start_loop(From, StartFunc0, ProxySpecs) ->
 -spec loop(#state{}) -> no_return(). % terminate/2
 loop(State = #state{tag = Tag, real_pid = RealPid}) ->
     receive
-        {'EXIT', RealPid, Reason} ->
+        {'EXIT', RealPid, Reason} -> % process 終了時
             {Result, Driver0} = proxy_driver:handle_down(Reason, State#state.driver),
             State2 = State#state{driver = Driver0},
             case Result of
@@ -68,7 +67,7 @@ loop(State = #state{tag = Tag, real_pid = RealPid}) ->
                 ok ->
                     _ = terminate(Reason, Driver0)
             end;
-        {Tag, restart} ->
+        {Tag, restart} -> % 再起動
             State2 = restart_real_process(State),
             ?MODULE:loop(State2);
         {'$proxy_call', From, get_real_process} ->
@@ -112,7 +111,7 @@ restart_real_process(State) ->
     {RealPid, StartFunc, Driver} = start_real_process(State#state.start_func, State#state.driver),
     State#state{real_pid = RealPid, driver = Driver, start_func = StartFunc}.
 
--spec start_real_process(StartFuncIn, DriverIn) -> {real_pid(), StartFuncOut, DriverOut} when
+-spec start_real_process(StartFuncIn, DriverIn) -> {pid() | hibernate, StartFuncOut, DriverOut} when
       StartFuncIn :: proxy_start_func:proxy_func(),
       DriverIn :: proxy_driver:state(),
       StartFuncOut :: proxy_start_func:proxy_func(),

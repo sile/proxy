@@ -30,15 +30,18 @@
 -callback init(proxy_arg()) ->
     {stop, term()} | ignore | {ok, proxy_state()}.
 
+%% proxy_server で実行する関数の引数を処理する.
 -callback handle_arg([term()], proxy_state()) ->
     {stop, term()} | {ok, [term()], proxy_state()} | {remove_proxy, [term()], proxy_state()} |
     {swap_proxy, [term()], term(), proxy_state(), module(), proxy_arg()} |
     {hibernate, [term()], proxy_state()}.
 
+%% proxy_server が起動した時にする処理.
 -callback handle_up(pid(), proxy_state()) ->
     {stop, term(), proxy_state()} | {ok, proxy_state()} | {remove_proxy, proxy_state()} |
     {swap_proxy, term(), proxy_state(), module(), proxy_arg()}.
 
+%% Message が飛んできたときの処理.
 -callback handle_message(term(), proxy_state()) ->
     {stop, term(), proxy_state()} | {ok, term(), proxy_state()} |
     {remove_proxy, term(), proxy_state()} | {remove_proxy, proxy_state()} |
@@ -46,6 +49,7 @@
     {swap_proxy, term(), term(), proxy_state(), module(), proxy_arg()} |
     {swap_proxy, term(), proxy_state(), module(), proxy_arg()}.
 
+%% process 終了時の処理. 前にある proxy がrestartを返すと, restart が掛かる.
 -callback handle_down(term(), proxy_state()) ->
     {stop, term(), proxy_state()} | {ok, proxy_state()} |
     {restart, proxy_state()} | {restart, non_neg_integer(), proxy_state()}.

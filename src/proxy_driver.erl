@@ -28,10 +28,9 @@
         }).
 
 -type proxy_behaiviour_module() :: module().
-%% proxy を behaviour として宣言しているモジュール.
+%% @doc proxy を behaviour として宣言しているモジュール.
 
--type proxy() :: {proxy_behaiviour_module(), proxy_state()}.
--type proxy_state() :: term().
+-type proxy() :: {proxy_behaiviour_module(), proxy:proxy_state()}.
 
 -opaque state() :: #?STATE{}.
 

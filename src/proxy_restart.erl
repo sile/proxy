@@ -110,13 +110,13 @@ is_restarting_needed(Reason, State) ->
     Now = os:timestamp(),
     Timestamps1 = delete_old_timestamp(Now, State#?STATE.max_time, Timestamps0),
     Count = queue:len(Timestamps1),
-    IsNeeded = 
+    IsNeeded =
         ((not State#?STATE.only_error orelse is_error_exit(Reason)) andalso
          Count < State#?STATE.max_restart),
     {IsNeeded, State#?STATE{start_timestamps = Timestamps1}}.
 
 %% @hidden
--spec delete_old_timestamp(erlang:timestamp(), integer(), Timestamps) -> Timestamps when
+-spec delete_old_timestamp(erlang:timestamp(), integer() | infinity, Timestamps) -> Timestamps when
       Timestamps :: queue:queue(erlang:timestamp()).
 delete_old_timestamp(_Now, infinity, Timestamps0) ->
     Timestamps0;
