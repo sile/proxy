@@ -32,7 +32,8 @@
 
 -callback handle_arg([term()], proxy_state()) ->
     {stop, term()} | {ok, [term()], proxy_state()} | {remove_proxy, [term()], proxy_state()} |
-    {swap_proxy, [term()], term(), proxy_state(), module(), proxy_arg()}.
+    {swap_proxy, [term()], term(), proxy_state(), module(), proxy_arg()} |
+    {hibernate, [term()], proxy_state()}.
 
 -callback handle_up(pid(), proxy_state()) ->
     {stop, term(), proxy_state()} | {ok, proxy_state()} | {remove_proxy, proxy_state()} |
