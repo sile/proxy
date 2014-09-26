@@ -21,7 +21,11 @@
 -export_type([
               proxy_spec/0,
               proxy_arg/0,
-              proxy_state/0
+              proxy_state/0,
+
+              function/0,
+              args/0,
+              spawn_options/0, spawn_option/0
              ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
