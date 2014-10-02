@@ -1,3 +1,4 @@
+%% coding: latin-1
 -module(proxy_tests).
 
 -include_lib("eunit/include/eunit.hrl").
