@@ -135,7 +135,7 @@ start_real_process(StartFunc0, Driver0) ->
 -spec ready_start_func(StartFuncIn, DriverIn) -> {DoStart, StartFuncOut, DriverOut} when
       StartFuncIn :: proxy_start_func:proxy_func(),
       DriverIn :: proxy_driver:state(),
-      DoStart :: boolean(), % FIXME: proxy_driver:handle_arg/2修正後, dialyzerの出力を確認.
+      DoStart :: boolean(),
       StartFuncOut :: proxy_start_func:proxy_func(),
       DriverOut :: proxy_driver:state().
 ready_start_func(StartFunc0, Driver0) ->
