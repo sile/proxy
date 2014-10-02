@@ -19,7 +19,7 @@
         ]).
 
 -export_type([
-              proxy_func/0,
+              real_func/0,
               spawn_func/0, start_func/0,
 
               function/0, args/0, spawn_options/0,
@@ -28,7 +28,7 @@
               spawn_option/0, priority_level/0
              ]).
 
--type proxy_func() :: spawn_func() | start_func(). % FIXME: 処理の内容を把握してから名前を検討.
+-type real_func() :: spawn_func() | start_func().
 
 -type spawn_func() :: {spawn, module(), function(), args(), spawn_options()}
                     | {spawn, fun(), spawn_options()}.
@@ -85,19 +85,19 @@ make_start_func(Module, Function, Args, Time, Options) ->
     {start, Module, Function, Args, Time, Options}.
 
 %% @doc 引数を取得する.
--spec get_args(proxy_func()) -> {ok, args()} | error.
+-spec get_args(real_func()) -> {ok, args()} | error.
 get_args({spawn, _, _, Args, _})    -> {ok, Args};
 get_args({start, _, _, Args, _, _}) -> {ok, Args};
 get_args(_)                         -> error.
 
 %% @doc 引数をセットする.
--spec set_args(args(), proxy_func()) -> proxy_func().
+-spec set_args(args(), real_func()) -> real_func().
 set_args(Args, Func = {spawn, _, _, _, _})    -> setelement(4, Func, Args);
 set_args(Args, Func = {start, _, _, _, _, _}) -> setelement(4, Func, Args);
 set_args(_Args, Func)                         -> Func.
 
 %% @doc 関数を開始する.
--spec start_link(proxy_func()) -> {ok, pid() | {pid(), reference()}} | term().
+-spec start_link(real_func()) -> {ok, pid() | {pid(), reference()}} | term().
 start_link({spawn, Module, Function, Args, Options}) ->
     {ok, spawn_opt(Module, Function, Args, [link | Options])};
 start_link({spawn, Fun, Options}) ->

@@ -18,7 +18,7 @@
 -record(state,
         {
           tag = make_ref() :: reference(),
-          start_func :: proxy_start_func:proxy_func(),
+          start_func :: proxy_start_func:real_func(),
           real_pid :: pid() | hibernate,
           driver :: proxy_driver:state()
         }).
@@ -27,12 +27,12 @@
 %% Exported Functions
 %%----------------------------------------------------------------------------------------------------------------------
 %% @doc proxy サーバを開始する.
--spec start_loop(proxy_start_func:proxy_func(), [proxy:proxy_spec()]) -> no_return(). % start_loop/3
+-spec start_loop(proxy_start_func:real_func(), [proxy:proxy_spec()]) -> no_return(). % start_loop/3
 start_loop(StartFunc, ProxySpecs) ->
     start_loop(undefined, StartFunc, ProxySpecs).
 
 %% @doc proxy サーバを開始する.
--spec start_loop(From, proxy_start_func:proxy_func(), [proxy:proxy_spec()]) -> no_return() when % loop/1
+-spec start_loop(From, proxy_start_func:real_func(), [proxy:proxy_spec()]) -> no_return() when % loop/1
       From :: {pid(), Tag::term()} | undefined.
 start_loop(From, StartFunc0, ProxySpecs) ->
     {InitResult, Driver0} = proxy_driver:init(ProxySpecs),
@@ -112,9 +112,9 @@ restart_real_process(State) ->
     State#state{real_pid = RealPid, driver = Driver, start_func = StartFunc}.
 
 -spec start_real_process(StartFuncIn, DriverIn) -> {pid() | hibernate, StartFuncOut, DriverOut} when
-      StartFuncIn :: proxy_start_func:proxy_func(),
+      StartFuncIn :: proxy_start_func:real_func(),
       DriverIn :: proxy_driver:state(),
-      StartFuncOut :: proxy_start_func:proxy_func(),
+      StartFuncOut :: proxy_start_func:real_func(),
       DriverOut :: proxy_driver:state().
 start_real_process(StartFunc0, Driver0) ->
     {DoStart, StartFunc1, Driver1} = ready_start_func(StartFunc0, Driver0),
@@ -133,10 +133,10 @@ start_real_process(StartFunc0, Driver0) ->
     end.
 
 -spec ready_start_func(StartFuncIn, DriverIn) -> {DoStart, StartFuncOut, DriverOut} when
-      StartFuncIn :: proxy_start_func:proxy_func(),
+      StartFuncIn :: proxy_start_func:real_func(),
       DriverIn :: proxy_driver:state(),
       DoStart :: boolean(),
-      StartFuncOut :: proxy_start_func:proxy_func(),
+      StartFuncOut :: proxy_start_func:real_func(),
       DriverOut :: proxy_driver:state().
 ready_start_func(StartFunc0, Driver0) ->
     case proxy_start_func:get_args(StartFunc0) of
