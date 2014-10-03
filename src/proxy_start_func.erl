@@ -30,11 +30,11 @@
 
 -type real_func() :: spawn_func() | start_func().
 
--type spawn_func() :: {spawn, module(), function(), args(), spawn_options()}
+-type spawn_func() :: {spawn, module(), fun_name(), args(), spawn_options()}
                     | {spawn, fun(), spawn_options()}.
--type start_func() :: {start, module(), function(), args(), time(), start_options()}.
+-type start_func() :: {start, module(), fun_name(), args(), time(), start_options()}.
 
--type function() :: atom().
+-type fun_name() :: atom().
 -type args() :: [term()].
 -type spawn_options() :: [spawn_option()].
 
@@ -55,11 +55,11 @@
 %% Exported Functions
 %%----------------------------------------------------------------------------------------------------------------------
 %% @doc 別プロセスで実行する関数セットを作る.
--spec make_spawn_func(module(), function(), args()) -> spawn_func().
+-spec make_spawn_func(module(), fun_name(), args()) -> spawn_func().
 make_spawn_func(Module, Function, Args) ->
     make_spawn_func(Module, Function, Args, []).
 
--spec make_spawn_func(module(), function(), args(), spawn_options()) -> spawn_func().
+-spec make_spawn_func(module(), fun_name(), args(), spawn_options()) -> spawn_func().
 make_spawn_func(Module, Function, Args, Options) ->
     {spawn, Module, Function, Args, Options}.
 
@@ -72,15 +72,15 @@ make_spawn_func(Fun, Options) ->
     {spawn, Fun, Options}.
 
 %% @doc サーバを実行するための関数セットを作る.
--spec make_start_func(module(), function(), args()) -> start_func().
+-spec make_start_func(module(), fun_name(), args()) -> start_func().
 make_start_func(Module, Function, Args) ->
     make_start_func(Module, Function, Args, 5000).
 
--spec make_start_func(module(), function(), args(), time()) -> start_func().
+-spec make_start_func(module(), fun_name(), args(), time()) -> start_func().
 make_start_func(Module, Function, Args, Time) ->
     make_start_func(Module, Function, Args, Time, []).
 
--spec make_start_func(module(), function(), args(), time(), start_options()) -> start_func().
+-spec make_start_func(module(), fun_name(), args(), time(), start_options()) -> start_func().
 make_start_func(Module, Function, Args, Time, Options) ->
     {start, Module, Function, Args, Time, Options}.
 
