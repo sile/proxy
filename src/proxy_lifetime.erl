@@ -26,10 +26,10 @@
 -record(?STATE,
         {
           tag = make_ref() :: reference(),
-          start_time :: time_spec(),
-          stop_time  :: time_spec() | infinity,
-          start_ref  :: reference() | undefined,
-          stop_ref   :: reference() | undefined
+          start_time       :: time_spec(),
+          stop_time        :: time_spec() | infinity,
+          start_ref        :: reference() | undefined,
+          stop_ref         :: reference() | undefined
         }).
 
 -type option() :: {start_time, time_spec()}             % default: now()
@@ -41,6 +41,7 @@
 %% 'proxy' Callback Functions
 %%----------------------------------------------------------------------------------------------------------------------
 %% @private
+-spec init([option()]) -> {ok, #?STATE{}}.
 init(Options) ->
     %% TODO: validation
     State =
@@ -51,6 +52,7 @@ init(Options) ->
     {ok, State}.
 
 %% @private
+-spec handle_arg(Args::[term()], #?STATE{}) -> {ok | hibernate, Args::[term()], #?STATE{}}.
 handle_arg(Args, State) ->
     Delta = timer:now_diff(State#?STATE.start_time, now()),
     case Delta =< 0 of
@@ -70,10 +72,13 @@ handle_arg(Args, State) ->
     end.
 
 %% @private
+-spec handle_up(pid(), #?STATE{}) -> {ok, #?STATE{}}.
 handle_up(_Pid, State) ->
     {ok, State}.
 
 %% @private
+-spec handle_message(Msg, #?STATE{}) -> {ignore, #?STATE{}} | {stop, Reason::term(), #?STATE{}} when
+      Msg :: {?MODULE, Tag::reference(), start | stop | {send_after, Time::non_neg_integer(), Msg::term()}} | term().
 handle_message({?MODULE, Tag, start}, State = #?STATE{tag = Tag}) ->
     _ = self() ! {'__SYSTEM__', 'RESUME'}, % 起動を依頼する
     case State#?STATE.stop_time of
@@ -97,19 +102,22 @@ handle_message(Message, State) ->
     {ok, Message, State}.
 
 %% @private
+-spec handle_down(term(), #?STATE{}) -> {ok, #?STATE{}}.
 handle_down(_Reason, State) ->
     {ok, State}.
 
 %% @private
+-spec terminate(term(), #?STATE{}) -> ok.
 terminate(_Reason, _State) ->
     ok.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Functions
 %%----------------------------------------------------------------------------------------------------------------------
+%% @hidden
 -spec send_after(non_neg_integer(), #?STATE{}, term()) -> reference().
 send_after(Time, State, Msg) ->
     case Time =< ?SEND_AFTER_MAX of
         true  -> erlang:send_after(Time, self(), Msg);
         false -> erlang:send_after(?SEND_AFTER_MAX, self(), {?MODULE, State#?STATE.tag, {send_after, Time - ?SEND_AFTER_MAX, Msg}})
-    end.            
+    end.

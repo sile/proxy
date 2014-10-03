@@ -1,29 +1,39 @@
+%% @doc proxyサーバモジュール
 -module(proxy_server).
 
+%%----------------------------------------------------------------------------------------------------------------------
+%% Exported API
+%%----------------------------------------------------------------------------------------------------------------------
 -export([
          start_loop/2, start_loop/3,
          loop/1
         ]).
 
--type start_func() :: {module(), atom(), [term()]}.
+%%----------------------------------------------------------------------------------------------------------------------
+%% Types & Records
+%%----------------------------------------------------------------------------------------------------------------------
 %-type proxy() :: {module(), proxy_state()}.
 %-type proxy_state() :: term().
 
 -record(state,
         {
           tag = make_ref() :: reference(),
-          start_func :: start_func(),
+          start_func :: proxy_start_func:real_func(),
           real_pid :: pid() | hibernate,
           driver :: proxy_driver:state()
         }).
 
-terminate(Reason, ProxyDriver) ->
-    _ = proxy_driver:terminate(Reason, ProxyDriver),
-    exit(Reason).
-
+%%----------------------------------------------------------------------------------------------------------------------
+%% Exported Functions
+%%----------------------------------------------------------------------------------------------------------------------
+%% @doc proxy サーバを開始する.
+-spec start_loop(proxy_start_func:real_func(), [proxy:proxy_spec()]) -> no_return(). % start_loop/3
 start_loop(StartFunc, ProxySpecs) ->
     start_loop(undefined, StartFunc, ProxySpecs).
 
+%% @doc proxy サーバを開始する.
+-spec start_loop(From, proxy_start_func:real_func(), [proxy:proxy_spec()]) -> no_return() when % loop/1
+      From :: {pid(), Tag::term()} | undefined.
 start_loop(From, StartFunc0, ProxySpecs) ->
     {InitResult, Driver0} = proxy_driver:init(ProxySpecs),
     case InitResult of
@@ -43,9 +53,11 @@ start_loop(From, StartFunc0, ProxySpecs) ->
             ?MODULE:loop(State)
     end.
 
+%% @doc proxy サーバのメインループ.
+-spec loop(#state{}) -> no_return(). % terminate/2
 loop(State = #state{tag = Tag, real_pid = RealPid}) ->
     receive
-        {'EXIT', RealPid, Reason} ->
+        {'EXIT', RealPid, Reason} -> % process 終了時
             {Result, Driver0} = proxy_driver:handle_down(Reason, State#state.driver),
             State2 = State#state{driver = Driver0},
             case Result of
@@ -55,7 +67,7 @@ loop(State = #state{tag = Tag, real_pid = RealPid}) ->
                 ok ->
                     _ = terminate(Reason, Driver0)
             end;
-        {Tag, restart} ->
+        {Tag, restart} -> % 再起動
             State2 = restart_real_process(State),
             ?MODULE:loop(State2);
         {'$proxy_call', From, get_real_process} ->
@@ -71,7 +83,7 @@ loop(State = #state{tag = Tag, real_pid = RealPid}) ->
                     _ = logi:warning("real process is already running"),
                     ?MODULE:loop(State)
             end;
-        Message ->
+        Message -> % TODO: {'$proxy_call', From, term()} が来た時にここで処理することは問題がない?
             {Result, Driver0} = proxy_driver:handle_message(Message, State#state.driver),
             State2 = State#state{driver = Driver0},
             case Result of
@@ -84,12 +96,26 @@ loop(State = #state{tag = Tag, real_pid = RealPid}) ->
                     _ = RealPid ! Message1,
                     ?MODULE:loop(State2)
             end
-    end.                    
+    end.
 
+%%----------------------------------------------------------------------------------------------------------------------
+%% Internal Functions
+%%----------------------------------------------------------------------------------------------------------------------
+-spec terminate(term(), proxy_driver:state()) -> no_return(). % exit/1
+terminate(Reason, ProxyDriver) ->
+    _ = proxy_driver:terminate(Reason, ProxyDriver),
+    exit(Reason).
+
+-spec restart_real_process(#state{}) -> #state{}.
 restart_real_process(State) ->
     {RealPid, StartFunc, Driver} = start_real_process(State#state.start_func, State#state.driver),
     State#state{real_pid = RealPid, driver = Driver, start_func = StartFunc}.
 
+-spec start_real_process(StartFuncIn, DriverIn) -> {pid() | hibernate, StartFuncOut, DriverOut} when
+      StartFuncIn :: proxy_start_func:real_func(),
+      DriverIn :: proxy_driver:state(),
+      StartFuncOut :: proxy_start_func:real_func(),
+      DriverOut :: proxy_driver:state().
 start_real_process(StartFunc0, Driver0) ->
     {DoStart, StartFunc1, Driver1} = ready_start_func(StartFunc0, Driver0),
     case DoStart of
@@ -106,6 +132,12 @@ start_real_process(StartFunc0, Driver0) ->
             end
     end.
 
+-spec ready_start_func(StartFuncIn, DriverIn) -> {DoStart, StartFuncOut, DriverOut} when
+      StartFuncIn :: proxy_start_func:real_func(),
+      DriverIn :: proxy_driver:state(),
+      DoStart :: boolean(),
+      StartFuncOut :: proxy_start_func:real_func(),
+      DriverOut :: proxy_driver:state().
 ready_start_func(StartFunc0, Driver0) ->
     case proxy_start_func:get_args(StartFunc0) of
         error       -> {true, StartFunc0, Driver0};
@@ -123,6 +155,7 @@ ready_start_func(StartFunc0, Driver0) ->
             end
     end.
 
+-spec reply({pid(), term()}, term()) -> ok.
 reply({Pid, Tag}, Message) ->
     _ = Pid ! {Tag, Message},
     ok.

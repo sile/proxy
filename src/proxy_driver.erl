@@ -1,5 +1,9 @@
+%% @doc proxyサーバで用いるドライバ.
 -module(proxy_driver).
 
+%%----------------------------------------------------------------------------------------------------------------------
+%% Exported API
+%%----------------------------------------------------------------------------------------------------------------------
 -export([
          init/1,
          handle_arg/2,
@@ -13,6 +17,9 @@
               state/0
              ]).
 
+%%----------------------------------------------------------------------------------------------------------------------
+%% Macros & Records & Types
+%%----------------------------------------------------------------------------------------------------------------------
 -define(STATE, ?MODULE).
 
 -record(?STATE,
@@ -20,11 +27,16 @@
           proxy_list = [] :: [proxy()]
         }).
 
--type proxy() :: {module(), proxy_state()}.
--type proxy_state() :: term().
+-type proxy_behaiviour_module() :: module().
+%% @doc proxy を behaviour として宣言しているモジュール.
+
+-type proxy() :: {proxy_behaiviour_module(), proxy:proxy_state()}.
 
 -opaque state() :: #?STATE{}.
 
+%%----------------------------------------------------------------------------------------------------------------------
+%% Exported Functions
+%%----------------------------------------------------------------------------------------------------------------------
 -spec init([proxy:proxy_spec()]) -> {Result, state()} when
       Result :: ok | {stop, Reason::term()}.
 init(ProxySpecs) ->
@@ -55,27 +67,8 @@ terminate(Reason, State) ->
            State#?STATE.proxy_list),
     #?STATE{proxy_list = []}.
 
--spec invoke_proxy_list(Fun, term(), state()) -> {Result, state()} when
-      Fun    :: fun ((term(), proxy()) -> {term()} | {term(), proxy()}),
-      Result :: {ok, term()} | {stop, Reason},
-      Reason :: term().
-invoke_proxy_list(Fun, Arg, State) ->
-    {Result, ProxyList} =
-        lists:foldl(
-          fun (Proxy0, {{PrevResult, Arg0}, Acc}) ->
-                  try Fun(PrevResult, Arg0, Proxy0) of
-                      {Result}         -> {Result, Acc};
-                      {Result, Proxy1} -> {Result, [Proxy1 | Acc]}
-                  catch
-                      Class:Reason -> {{stop, make_exception_reason(Class, Reason)}, [Proxy0 | Acc]}
-                  end
-          end,
-          {{ok, Arg}, []},
-          State#?STATE.proxy_list),
-    {Result, State#?STATE{proxy_list = lists:reverse(ProxyList)}}.
-
 -spec handle_arg(term(), state()) -> {Result, state()} when
-      Result :: {ok, term()} | {stop, Reason::term()}.
+      Result :: {ok, term()} | {stop, Reason::term()} | {hibernate, Arg::[term()]}.
 handle_arg(Arg, State) ->
     invoke_proxy_list(fun invoke_handle_arg/3, Arg, State).
 
@@ -87,7 +80,7 @@ handle_up(RealPid, State) ->
         {ok, _} -> {ok, State2};
         _       -> {Result, State2}
     end.
-      
+
 -spec handle_message(term(), state()) -> {Result, state()} when
       Result :: {ok, term()} | ignore | {stop, Reason::term()}.
 handle_message(Message, State) ->
@@ -103,6 +96,30 @@ handle_down(Reason, State) ->
         _            -> {ok, State2}
     end.
 
+%%------------------------------------------------------------------------------------------------------------------------
+%% Internal Functions
+%%------------------------------------------------------------------------------------------------------------------------
+-spec invoke_proxy_list(Fun, term(), state()) -> {Result, state()} when
+      Fun :: fun ((term(), term(), term()) -> term() | {term(), proxy()}),
+      Result :: {ok, term()} | {stop, Reason} | {hibernate, Arg} | ignore | {restart, After},
+      Reason :: term(),
+      Arg :: [term()],
+      After :: term().
+invoke_proxy_list(Fun, Arg, State) ->
+    {Result, ProxyList} =
+        lists:foldl(
+          fun (Proxy0, {{PrevResult, Arg0}, Acc}) ->
+                  try Fun(PrevResult, Arg0, Proxy0) of
+                      {Result}         -> {Result, Acc};
+                      {Result, Proxy1} -> {Result, [Proxy1 | Acc]}
+                  catch
+                      Class:Reason -> {{stop, make_exception_reason(Class, Reason)}, [Proxy0 | Acc]}
+                  end
+          end,
+          {{ok, Arg}, []},
+          State#?STATE.proxy_list),
+    {Result, State#?STATE{proxy_list = lists:reverse(ProxyList)}}.
+
 -spec invoke_init(proxy:proxy_spec()) -> {ok, proxy()} | ignore | {stop, Reason::term()}.
 invoke_init({Module, Arg}) ->
     case Module:init(Arg) of
@@ -112,6 +129,11 @@ invoke_init({Module, Arg}) ->
         Other          -> error({unexpected_return, {Module, init, [Arg]}, Other}, [Module, Arg])
     end.
 
+-spec invoke_handle_arg(PrevResult, Arg, proxy()) -> Result | {Result, proxy()} when
+      PrevResult :: term(),
+      Result :: {ok, Arg} | {stop, Reason} | {hibernate, Arg},
+      Arg :: [term()],
+      Reason :: term().
 invoke_handle_arg(_Prev, Arg0, {Module, State0}) ->
     case Module:handle_arg(Arg0, State0) of
         {stop, Reason, State1}       -> {{stop, Reason}, {Module, State1}};
@@ -127,6 +149,10 @@ invoke_handle_arg(_Prev, Arg0, {Module, State0}) ->
         Other -> error({unexpected_return, {Module, handle_arg, [Arg0, State0]}, Other}, [Arg0, {Module, State0}])
     end.
 
+-spec invoke_handle_up(PrevResult, pid(), proxy()) -> {Result, proxy()} when
+      PrevResult :: term(),
+      Result :: {ok, pid()} | {stop, Reason},
+      Reason :: term().
 invoke_handle_up(_Prev, RealPid, {Module, State0}) ->
     case Module:handle_up(RealPid, State0) of
         {stop, Reason, State1} -> {{stop, Reason}, {Module, State1}};
@@ -141,6 +167,20 @@ invoke_handle_up(_Prev, RealPid, {Module, State0}) ->
         Other -> error({unexpected_return, {Module, handle_up, [RealPid, State0]}, Other}, [RealPid, {Module, State0}])
     end.
 
+-spec invoke_handle_down(Arg1, Arg2, Arg3) -> Return when
+      %% 縦で1組.
+      %% 関数のパターンマッチのように書こうとすると overlap で error が出るため, このように記述.
+      Arg1   :: restart                     | PrevResult,
+      Arg2   :: After                       | ExitReason,
+      Arg3   :: state()                     | proxy(),
+      Return :: {{restart, After}, state()} | {Result, proxy()},
+
+      After :: non_neg_integer(),
+
+      PrevResult :: term(),
+      ExitReason :: term(),
+      Result :: {ok, ExitReason} | {stop, Reason} | {restart, After},
+      Reason :: term().
 invoke_handle_down(restart, After, State) ->
     {{restart, After}, State};
 invoke_handle_down(_Prev, ExitReason, {Module, State0}) ->
@@ -152,7 +192,16 @@ invoke_handle_down(_Prev, ExitReason, {Module, State0}) ->
         Other -> error({unexpected_return, {Module, handle_down, [ExitReason, State0]}, Other}, [ExitReason, {Module, State0}])
     end.
 
-%%-spec invoke_handle_message(term(), proxy()) -> todo.
+-spec invoke_handle_message(Arg1, Arg2, proxy()) -> Return when
+      Arg1   :: stop   | PrevResult,
+      Arg2   :: Reason | Msg,
+      Return :: term() | {Result, proxy()},
+
+      Reason :: term(),
+
+      PrevResult :: term(),
+      Msg :: term(),
+      Result :: {ok, Msg} | {stop, Reason} | ignore.
 invoke_handle_message(stop, Reason, {Module, State}) ->
     {{stop, Reason}, {Module, State}};
 invoke_handle_message(_Prev, Msg0, {Module, State0}) ->
@@ -182,7 +231,7 @@ invoke_handle_message(_Prev, Msg0, {Module, State0}) ->
 remove_proxy({Module, State}) ->
     (catch invoke_terminate(remove_proxy, {Module, State})). % TODO: log
 
--spec swap_proxy(term(), proxy(), module(), term()) -> {stop, term()} | ignore | {ok, proxy()}.
+-spec swap_proxy(term(), proxy(), proxy_behaiviour_module(), term()) -> {stop, term()} | ignore | {ok, proxy()}.
 swap_proxy(SwapReason, Proxy, NewModule, NewArg) ->
     try
         TerminateValue = invoke_terminate(SwapReason, Proxy),
@@ -195,6 +244,7 @@ swap_proxy(SwapReason, Proxy, NewModule, NewArg) ->
 invoke_terminate(Reason, {Module, State}) ->
     Module:terminate(Reason, State).
 
--spec make_exception_reason(atom(), term()) -> proxy:exception_reason().
+-spec make_exception_reason(atom(), term()) -> term().
+%% -spec make_exception_reason(atom(), term()) -> proxy:exception_reason().
 make_exception_reason(Class, Reason) ->
     {'EXCEPTION', {Class, Reason, erlang:get_stacktrace()}}.

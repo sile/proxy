@@ -9,3 +9,5 @@ log/
 erl
 *.dump
 .eunit
+
+tags
