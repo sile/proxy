@@ -25,6 +25,21 @@ restart_test_() ->
                 end,
                 lists:seq(1, Count))
       end},
+     {"intervalの設定が正常に設定されている",
+      fun () ->
+              Count = 5,
+              Parent = self(),
+              proxy:spawn_opt(fun () ->
+                                      Parent ! hello
+                              end,
+                              [{proxy_restart, [{interval, 10}, {max_interval, 20}, {max_restart, Count}]}],
+                              [link]),
+              [_ | Result] = [begin
+                                  {Time, _} = timer:tc(fun() -> receive hello -> ok end end),
+                                  Time
+                              end || _ <- lists:seq(1, Count)],
+              [?assert(R >= 10 * 1000 andalso R < 30 * 1000) || R <- Result]
+      end},
      {"回数が残っている場合でもEXITシグナルを受け取ったら、実プロセスもダウンする: プロキシが一つの場合",
       fun () ->
               Count = 3,
