@@ -23,6 +23,7 @@
 -type option() :: {max_restart, non_neg_integer()}  % default: 5
                 | {max_time, timeout()}             % default: infinity
                 | {interval, non_neg_integer()}     % default: 0
+                | {max_interval, non_neg_integer()} % default: 60 * 1000
                 | {only_error, boolean()}.          % default: false
 %% TODO: only_error以外にもっと細かい粒度で再起動ポリシーを制御する方法を提供する
 
@@ -33,7 +34,7 @@
           max_restart                    :: non_neg_integer(),
           max_time                       :: timeout(),
           interval                       :: non_neg_integer(),
-          max_interval = 60 * 1000       :: non_neg_integer(), % TODO: もっと細かく設定可能に & 制御可能に
+          max_interval                   :: non_neg_integer(),
           only_error                     :: boolean(),
           start_timestamps = queue:new() :: queue:queue(erlang:timestamp())
         }).
@@ -49,6 +50,7 @@ init(Options) ->
         #?STATE{
             max_restart = proplists:get_value(max_restart, Options, 5),
             max_time    = proplists:get_value(max_time, Options, infinity),
+            max_interval= proplists:get_value(max_interval, Options, 60 * 1000),
             interval    = proplists:get_value(interval, Options, 0),
             only_error  = proplists:get_value(only_error, Options, false)
            },
