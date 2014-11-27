@@ -1,9 +1,12 @@
 APP=proxy
 
+DIALYZER_OPTS=-Werror_handling -Wrace_conditions -Wunmatched_returns
+
+LIBS=$(ERL_LIBS):deps
+
 all: compile xref eunit dialyze
 
 init:
-	@eval "if ! [ -f 'src/${APP}.app.src' ]; then ./rebar create-app appid=${APP}; fi"
 	@./rebar get-deps compile
 
 compile:
@@ -14,7 +17,9 @@ xref:
 
 clean:
 	@./rebar clean skip_deps=true
-	@rm -f .dialyze.plt
+
+distclean:
+	git clean -ffndx
 
 eunit:
 	@./rebar eunit skip_deps=true
@@ -22,12 +27,16 @@ eunit:
 edoc:
 	@./rebar doc skip_deps=true
 
+escript: compile
+	@ERL_LIBS=$(LIBS) ./rebar escript -C escript.config
+
 start: compile
-	@erl -pz ebin deps/*/ebin -eval 'erlang:display({start_app, $(APP), application:ensure_all_started($(APP))}).'
+	@ERL_LIBS=$(LIBS) erl +stbt db +K true -pz ebin -eval 'erlang:display(application:ensure_all_started($(APP))).'
 
 .dialyzer.plt:
 	touch .dialyzer.plt
-	dialyzer --build_plt --plt .dialyzer.plt --apps erts kernel stdlib
+	ERL_LIBS=$(LIBS) dialyzer --build_plt --plt .dialyzer.plt --apps erts \
+	$(shell ERL_LIBS=$(LIBS) erl -noshell -pa ebin -eval '{ok, _} = application:ensure_all_started($(APP)), [erlang:display(Name) || {Name, _, _} <- application:which_applications(), Name =/= $(APP)], halt().')
 
-dialyze: .dialyzer.plt compile
-	dialyzer --plt .dialyzer.plt -r ebin
+dialyze: compile .dialyzer.plt
+	ERL_LIBS=$(LIBS) dialyzer -pa ebin --plt .dialyzer.plt -I deps -r ebin $(DIALYZER_OPTS)
