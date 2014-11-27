@@ -10,7 +10,8 @@
 %% Exported API
 %%----------------------------------------------------------------------------------------------------------------------
 -export_type([
-              option/0
+              option/0,
+              max_restart/0
              ]).
 
 -export([
@@ -20,7 +21,7 @@
 %%----------------------------------------------------------------------------------------------------------------------
 %% Types & Macros & Records
 %%----------------------------------------------------------------------------------------------------------------------
--type option() :: {max_restart, non_neg_integer()}  % default: 5
+-type option() :: {max_restart, max_restart()}      % default: 5
                 | {max_time, timeout()}             % default: infinity
                 | {interval, non_neg_integer()}     % default: 0
                 | {max_interval, non_neg_integer()} % default: 60 * 1000
@@ -31,13 +32,15 @@
 
 -record(?STATE,
         {
-          max_restart                    :: non_neg_integer(),
+          max_restart                    :: max_restart(),
           max_time                       :: timeout(),
           interval                       :: non_neg_integer(),
           max_interval                   :: non_neg_integer(),
           only_error                     :: boolean(),
           start_timestamps = queue:new() :: queue:queue(erlang:timestamp())
         }).
+
+-type max_restart() :: non_neg_integer() | infinity.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% 'proxy' Callback API
@@ -114,7 +117,7 @@ is_restarting_needed(Reason, State) ->
     Count = queue:len(Timestamps1),
     IsNeeded =
         ((not State#?STATE.only_error orelse is_error_exit(Reason)) andalso
-         Count < State#?STATE.max_restart),
+         (State#?STATE.max_restart =:= infinity orelse Count < State#?STATE.max_restart)),
     {IsNeeded, State#?STATE{start_timestamps = Timestamps1}}.
 
 %% @hidden
