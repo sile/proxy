@@ -11,7 +11,8 @@
 %%----------------------------------------------------------------------------------------------------------------------
 -export_type([
               option/0,
-              max_restart/0
+              max_restart/0,
+              restart_stop_fun/0
              ]).
 
 -export([
@@ -25,7 +26,8 @@
                 | {max_time, timeout()}             % default: infinity
                 | {interval, non_neg_integer()}     % default: 0
                 | {max_interval, non_neg_integer()} % default: 60 * 1000
-                | {only_error, boolean()}.          % default: false
+                | {only_error, boolean()}           % default: false
+                | {restart_stop_fun, restart_stop_fun()}.
 %% TODO: only_error以外にもっと細かい粒度で再起動ポリシーを制御する方法を提供する
 
 -define(STATE, ?MODULE).
@@ -37,10 +39,12 @@
           interval                       :: non_neg_integer(),
           max_interval                   :: non_neg_integer(),
           only_error                     :: boolean(),
-          start_timestamps = queue:new() :: queue:queue(erlang:timestamp())
+          start_timestamps = queue:new() :: queue:queue(erlang:timestamp()),
+          restart_stop_fun               :: undefined | restart_stop_fun()
         }).
 
 -type max_restart() :: non_neg_integer() | infinity.
+-type restart_stop_fun() :: fun ((term()) -> boolean()). % Stop restarting if this function returns false
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% 'proxy' Callback API
@@ -55,7 +59,8 @@ init(Options) ->
             max_time    = proplists:get_value(max_time, Options, infinity),
             max_interval= proplists:get_value(max_interval, Options, 60 * 1000),
             interval    = proplists:get_value(interval, Options, 0),
-            only_error  = proplists:get_value(only_error, Options, false)
+            only_error  = proplists:get_value(only_error, Options, false),
+            restart_stop_fun = proplists:get_value(restart_stop_fun, Options, undefined)
            },
     {ok, State}.
 
@@ -117,6 +122,7 @@ is_restarting_needed(Reason, State) ->
     Count = queue:len(Timestamps1),
     IsNeeded =
         ((not State#?STATE.only_error orelse is_error_exit(Reason)) andalso
+         (State#?STATE.restart_stop_fun =:= undefined orelse not (State#?STATE.restart_stop_fun)(Reason)) andalso
          (State#?STATE.max_restart =:= infinity orelse Count < State#?STATE.max_restart)),
     {IsNeeded, State#?STATE{start_timestamps = Timestamps1}}.
 
