@@ -75,7 +75,7 @@
                       | {fullsweep_after, non_neg_integer()}
                       | {min_heap_size, non_neg_integer()}
                       | {min_bin_vheap_size, non_neg_integer()}.
-%% @doc spawn_optのoption
+%% spawn_optのoption
 
 -type priority_level() :: low | normal | high | max.
 
