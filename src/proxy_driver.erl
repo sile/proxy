@@ -84,7 +84,10 @@ handle_up(RealPid, State) ->
 -spec handle_message(term(), state()) -> {Result, state()} when
       Result :: {ok, term()} | ignore | {stop, Reason::term()}.
 handle_message(Message, State) ->
-    invoke_proxy_list(fun invoke_handle_message/3, Message, State).
+    case invoke_proxy_list(fun invoke_handle_message/3, Message, State) of
+        {{ignore, _}, State2} -> {ignore, State2};
+        Other                 -> Other
+    end.
 
 -spec handle_down(term(), state()) -> {Result, state()} when
       Result :: ok
@@ -100,8 +103,8 @@ handle_down(Reason, State) ->
 %% Internal Functions
 %%------------------------------------------------------------------------------------------------------------------------
 -spec invoke_proxy_list(Fun, term(), state()) -> {Result, state()} when
-      Fun :: fun ((term(), term(), term()) -> term() | {term(), proxy()}),
-      Result :: {ok, term()} | {stop, Reason} | {hibernate, Arg} | ignore | {restart, After},
+      Fun :: fun ((term(), term(), term()) -> {term(), term()} | {{term(), term()}, proxy()}),
+      Result :: {ok, term()} | {stop, Reason} | {hibernate, Arg} | {ignore, term()} | {restart, After},
       Reason :: term(),
       Arg :: [term()],
       After :: term().
@@ -139,7 +142,7 @@ invoke_handle_arg(_Prev, Arg0, {Module, State0}) ->
         {stop, Reason, State1}       -> {{stop, Reason}, {Module, State1}};
         {hibernate, Arg1, State1}    -> {{hibernate, Arg1}, {Module, State1}};
         {ok, Arg1, State1}           -> {{ok, Arg1}, {Module, State1}};
-        {remove_proxy, Arg1, State1} -> _ = remove_proxy({Module, State1}), {{ok, Arg1}};
+        {remove_proxy, Arg1, State1} -> _ = remove_proxy({Module, State1}), {{ignore, Arg1}};
         {swap_proxy, Arg1, SwapReason, State1, NewModule, NewArg} ->
             case swap_proxy(SwapReason, {Module, State1}, NewModule, NewArg) of
                 {stop, Reason} -> {{stop, Reason}};
@@ -157,7 +160,7 @@ invoke_handle_up(_Prev, RealPid, {Module, State0}) ->
     case Module:handle_up(RealPid, State0) of
         {stop, Reason, State1} -> {{stop, Reason}, {Module, State1}};
         {ok, State1}           -> {{ok, RealPid}, {Module, State1}};
-        {remove_proxy, State1} -> _ = remove_proxy({Module, State1}), {{ok, RealPid}};
+        {remove_proxy, State1} -> _ = remove_proxy({Module, State1}), {{ignore, RealPid}};
         {swap_proxy, SwapReason, State1, NewModule, NewArg} ->
             case swap_proxy(SwapReason, {Module, State1}, NewModule, NewArg) of
                 {stop, Reason} -> {{stop, Reason}};
@@ -204,20 +207,26 @@ invoke_handle_down(_Prev, ExitReason, {Module, State0}) ->
       Result :: {ok, Msg} | {stop, Reason} | ignore.
 invoke_handle_message(stop, Reason, {Module, State}) ->
     {{stop, Reason}, {Module, State}};
+invoke_handle_message(ignore, Msg0, {Module, State}) ->
+    Result = invoke_handle_message(ok, Msg0, {Module, State}),
+    case element(1, element(1, Result)) of
+        stop -> Result;
+        _    -> setelement(1, Result, setelement(1, element(1, Result), ignore))
+    end;
 invoke_handle_message(_Prev, Msg0, {Module, State0}) ->
     case Module:handle_message(Msg0, State0) of
         {stop, Reason, State1}       -> {{stop, Reason}, {Module, State1}};
         {ok, Msg1, State1}           -> {{ok, Msg1}, {Module, State1}};
         {remove_proxy, Msg1, State1} -> _ = remove_proxy({Module, State1}), {{ok, Msg1}};
-        {remove_proxy, State1}       -> _ = remove_proxy({Module, State1}), {ignore};
-        {ignore, State1}             -> {ignore, {Module, State1}};
+        {remove_proxy, State1}       -> _ = remove_proxy({Module, State1}), {{ok, Msg0}};
+        {ignore, State1}             -> {{ignore, Msg0}, {Module, State1}};
         Other                        ->
             {InvokeResult, SwapResult} =
                 case Other of
                     {swap_proxy, Msg1, SwapReason, State1, NewModule, NewArg} ->
                         {{ok, Msg1}, swap_proxy(SwapReason, {Module, State1}, NewModule, NewArg)};
                     {swap_proxy, SwapReason, State1, NewModule, NewArg}       ->
-                        {ignore, swap_proxy(SwapReason, {Module, State1}, NewModule, NewArg)};
+                        {{ignore, Msg0}, swap_proxy(SwapReason, {Module, State1}, NewModule, NewArg)};
                     _ -> error({unexpected_return, {Module, handle_message, [Msg0, State0]}, Other}, [Msg0, {Module, State0}])
                 end,
             case SwapResult of
