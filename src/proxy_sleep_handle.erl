@@ -17,14 +17,16 @@
 %% Macros & Records & Types
 %%----------------------------------------------------------------------------------------------------------------------
 
--record(state,
+-define(STATE, ?MODULE).
+
+-record(?STATE,
         {
           is_running = false :: boolean(),
           call               :: undefined | fun((term()) -> {reply, term()} | noreply),
           cast               :: undefined | fun((term()) -> ok),
           info               :: undefined | fun((term()) -> ok)
         }).
--type state()  :: #state{}.
+-type state()  :: #?STATE{}.
 
 -type option() :: {call, fun((term()) -> {reply, term()} | noreply)} |
                   {cast, fun((term()) -> ok)}                        |
@@ -42,7 +44,7 @@ init(Options) ->
     Cast = proplists:get_value(cast, Options, undefined),
     Info = proplists:get_value(info, Options, undefined),
 
-    State = #state{call = Call, cast = Cast, info = Info},
+    State = #?STATE{call = Call, cast = Cast, info = Info},
     {ok, State}.
 
 %% @private
@@ -53,22 +55,22 @@ handle_arg(Args, State) ->
 %% @private
 -spec handle_up(RealProcess :: pid(), state()) -> {ok, state()}.
 handle_up(_Pid, State) ->
-    {ok, State#state{is_running = true}}.
+    {ok, State#?STATE{is_running = true}}.
 
 %% @private
 -spec handle_message(Message :: term(), state()) -> {ok, MessageOut :: term(), state()} | {stop, Reason :: term(), state()}.
 handle_message({'EXIT', _Pid, Reason}, State) ->
     {stop, Reason, State};
-handle_message({'$gen_call', {From, Ref}, Request}, #state{is_running = false, call = CallFun} = State) when CallFun =/= undefined ->
+handle_message({'$gen_call', {From, Ref}, Request}, #?STATE{is_running = false, call = CallFun} = State) when CallFun =/= undefined ->
     _ = case CallFun(Request) of
-            {reply, Response} -> From ! {Ref, Response};
+            {reply, Response} -> gen_server:reply({From, Ref}, Response);
             noreply           -> ok
         end,
     {ignore, State};
-handle_message({'$gen_cast', Request}, #state{is_running = false, cast = CastFun} = State) when CastFun =/= undefined ->
+handle_message({'$gen_cast', Request}, #?STATE{is_running = false, cast = CastFun} = State) when CastFun =/= undefined ->
     _ = CastFun(Request),
     {ignore, State};
-handle_message(Request, #state{is_running = false, info = InfoFun} = State) when InfoFun =/= undefined ->
+handle_message(Request, #?STATE{is_running = false, info = InfoFun} = State) when InfoFun =/= undefined ->
     _ = InfoFun(Request),
     {ignore, State};
 handle_message(Message, State) ->
@@ -77,7 +79,7 @@ handle_message(Message, State) ->
 %% @private
 -spec handle_down(Reason :: term(), state()) -> {ok, state()}.
 handle_down(_Reason, State) ->
-    {ok, State#state{is_running = false}}.
+    {ok, State#?STATE{is_running = false}}.
 
 %% @private
 -spec terminate(Reason :: term(), state()) -> ok.
