@@ -6,7 +6,7 @@
 %% Exported API
 %%----------------------------------------------------------------------------------------------------------------------
 -export([
-         start_loop/2, start_loop/3,
+         start_loop/2, start_loop/4,
          loop/1
         ]).
 
@@ -30,12 +30,17 @@
 %% @doc proxy サーバを開始する.
 -spec start_loop(proxy_start_func:real_func(), [proxy:proxy_spec()]) -> no_return(). % start_loop/3
 start_loop(StartFunc, ProxySpecs) ->
-    start_loop(undefined, StartFunc, ProxySpecs).
+    start_loop(undefined, undefined, StartFunc, ProxySpecs).
 
 %% @doc proxy サーバを開始する.
--spec start_loop(From, proxy_start_func:real_func(), [proxy:proxy_spec()]) -> no_return() when % loop/1
+-spec start_loop(proxy:proxy_name() | undefined, From, proxy_start_func:real_func(), [proxy:proxy_spec()]) -> no_return() when % loop/1
       From :: {pid(), Tag::term()} | undefined.
-start_loop(From, StartFunc0, ProxySpecs) ->
+start_loop(Name, From, StartFunc, ProxySpecs) when Name =/= undefined ->
+    case proxy_lib:name_register(Name) of
+        {false, Pid} -> exit({already_started, Pid});
+        true         -> start_loop(undefined, From, StartFunc, ProxySpecs)
+    end;
+start_loop(_Name, From, StartFunc0, ProxySpecs) ->
     {InitResult, Driver0} = proxy_driver:init(ProxySpecs),
     case InitResult of
         {stop, Reason} -> terminate(Reason, Driver0);

@@ -10,8 +10,8 @@
          %% TODO: call, notify, add_proxy, swap_proxy, delete_proxy, which_proxies
          spawn/2, spawn/4,
          spawn_opt/3, spawn_opt/5,
-         start/4,
-         start_link/4
+         start/4, start/5,
+         start_link/4, start_link/5
         ]).
 
 -export([
@@ -25,7 +25,10 @@
 
               function/0,
               args/0,
-              spawn_options/0, spawn_option/0
+              spawn_options/0, spawn_option/0,
+
+              proxy_name/0,
+              proxy_ref/0
              ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -82,6 +85,16 @@
 -type fun_name() :: atom().
 -type args() :: [term()].
 
+-type proxy_name() :: {local, Name :: atom()}
+                    | {global, Name :: term()}
+                    | {via, module(), Name :: term()}.
+
+-type proxy_ref() :: (Name :: atom())
+                   | {Name :: atom(), node()}
+                   | {global, Name :: term()}
+                   | {via, module(), Name :: term()}
+                   | pid().
+
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported Functions
 %%----------------------------------------------------------------------------------------------------------------------
@@ -121,32 +134,47 @@ spawn_opt(Module, Function, Args, ProxySpecs, SpawnOpts) ->
     StartFunc = proxy_start_func:make_spawn_func(Module, Function, Args, SpawnOpts),
     erlang:spawn_opt(proxy_server, start_loop, [StartFunc, ProxySpecs], SpawnOpts).
 
+%% @doc proxy を挟んで 名前付きserver を起動する.
+-spec start(proxy_name(), module(), fun_name(), args(), [proxy_spec()]) -> {ok, pid()} | {error, Reason} when
+      Reason :: {already_started, pid()} | term().
+start(Name, Module, Function, Args, ProxySpecs) ->
+    start_impl(Name, false, Module, Function, Args, ProxySpecs).
+
+%% @doc proxy を挟んで 名前付きserver を起動する.
+-spec start_link(proxy_name(), module(), fun_name(), args(), [proxy_spec()]) -> {ok, pid()} | {error, Reason} when
+      Reason :: {already_started, pid()} | term().
+start_link(Name, Module, Function, Args, ProxySpecs) ->
+    start_impl(Name, true, Module, Function, Args, ProxySpecs).
+
 %% @doc proxy を挟んで server を起動する.
 -spec start(module(), fun_name(), args(), [proxy_spec()]) -> {ok, pid()} | {error, Reason::term()}.
 start(Module, Function, Args, ProxySpecs) ->
-    Ref  = make_ref(),
-    From = {self(), Ref},
-    StartFunc = proxy_start_func:make_start_func(Module, Function, Args),
-    Pid = erlang:spawn(proxy_server, start_loop, [From, StartFunc, ProxySpecs]),
-    Monitor = erlang:monitor(process, Pid),
-    receive
-        {'DOWN', _, _, Pid, Reason} -> {error, Reason};
-        {Ref, Result}               ->
-            _ = erlang:demonitor(Monitor, [flush]),
-            Result
-    end.
+    start_impl(undefined, false, Module, Function, Args, ProxySpecs).
 
 %% @doc proxy を挟んで server を起動する.
 -spec start_link(module(), fun_name(), args(), [proxy_spec()]) -> {ok, pid()} | {error, Reason::term()}.
 start_link(Module, Function, Args, ProxySpecs) ->
-    Ref  = make_ref(),
-    From = {self(), Ref},
-    StartFunc = proxy_start_func:make_start_func(Module, Function, Args),
-    Pid = erlang:spawn_link(proxy_server, start_loop, [From, StartFunc, ProxySpecs]),
-    Monitor = erlang:monitor(process, Pid),
-    receive
-        {'DOWN', _, _, Pid, Reason} -> {error, Reason};
-        {Ref, Result}               ->
-            _ = erlang:demonitor(Monitor, [flush]),
-            Result
+    start_impl(undefined, true, Module, Function, Args, ProxySpecs).
+
+%%----------------------------------------------------------------------------------------------------------------------
+%% Exported Functions
+%%----------------------------------------------------------------------------------------------------------------------
+-spec start_impl(proxy_name() | undefined, boolean(), module(), fun_name(), args(), [proxy_spec()]) -> {ok, pid()} | {error, Reason} when
+      Reason :: {already_started, pid()} | term().
+start_impl(Name, DoLink, Module, Function, Args, ProxySpecs) ->
+    case Name =:= undefined orelse proxy_lib:where(Name) of
+        Pid when is_pid(Pid) -> {error, {already_started, Pid}};
+        _ ->
+            Ref  = make_ref(),
+            From = {self(), Ref},
+            StartFunc = proxy_start_func:make_start_func(Module, Function, Args),
+            Spawn = case DoLink of true -> spawn_link; false -> spawn end,
+            Pid = erlang:Spawn(proxy_server, start_loop, [Name, From, StartFunc, ProxySpecs]),
+            Monitor = erlang:monitor(process, Pid),
+            receive
+                {'DOWN', _, _, Pid, Reason} -> {error, Reason};
+                {Ref, Result}               ->
+                    _ = erlang:demonitor(Monitor, [flush]),
+                    Result
+            end
     end.

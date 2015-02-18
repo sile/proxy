@@ -51,6 +51,37 @@ spawn_test_() ->
       end}
     ].
 
+start_test_() ->
+    [
+     {"無名関数が名前なしプロキシ経由で起動できる",
+      fun () ->
+              Parent = self(),
+              {ok, ProxyPid} = proxy:start(erlang, apply, [fun () -> {ok, spawn(fun () -> Parent ! {pid, self()} end)} end, []], []),
+              ?assert(is_pid(ProxyPid)),
+
+              receive
+                  {pid, RealPid} ->
+                      ?assert(is_pid(RealPid)),
+                      ?assertNot(ProxyPid =:= RealPid) % プロキシプロセス と 実プロセス のPIDは異なる
+              end
+      end},
+     {"無名関数が名前付きプロキシ経由で起動できる",
+      fun () ->
+              Parent = self(),
+
+              ?assertEqual(undefined, whereis(hoge_proxy)), % 未登録
+              {ok, ProxyPid} = proxy:start({local, hoge_proxy}, erlang, apply, [fun () -> {ok, spawn(fun () -> Parent ! {pid, self()} end)} end, []], []),
+              ?assertEqual(ProxyPid, whereis(hoge_proxy)), % 登録
+              ?assert(is_pid(ProxyPid)),
+
+              receive
+                  {pid, RealPid} ->
+                      ?assert(is_pid(RealPid)),
+                      ?assertNot(ProxyPid =:= RealPid) % プロキシプロセス と 実プロセス のPIDは異なる
+              end
+      end}
+    ].
+
 multi_proxy_test_() ->
     [
      {"複数のプロキシが登録できる",
