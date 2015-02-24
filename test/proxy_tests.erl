@@ -51,6 +51,31 @@ spawn_test_() ->
       end}
     ].
 
+spawn_opt_test_() ->
+    [
+     {"minitorオプションが指定可能",
+      fun () ->
+              Parent = self(),
+              {ProxyPid, Monitor} = proxy:spawn_opt(fun () -> Parent ! {pid, self()} end, [], [monitor]),
+
+              receive
+                  {pid, RealPid} ->
+                      exit(ProxyPid, kill),
+                      exit(RealPid, kill),
+                      receive
+                          {'DOWN', Monitor, _, ProxyPid, _} ->
+                              %% プロキシプロセスは監視している
+                              receive
+                                  {'DOWN', _, _, _, _}  -> ?assert(false)
+                              after 20 ->
+                                      %% 実プロセスは監視対象外
+                                      ?assertNot(is_process_alive(RealPid))
+                              end
+                      end
+              end
+      end}
+    ].
+
 start_test_() ->
     [
      {"無名関数が名前なしプロキシ経由で起動できる",

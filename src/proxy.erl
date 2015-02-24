@@ -125,13 +125,13 @@ spawn(Module, Function, Args, ProxySpecs) ->
 %% @doc proxy を挟み option を指定して process を生成する.
 -spec spawn_opt(fun(), [proxy_spec()], spawn_options()) -> pid() | {pid(), reference()}.
 spawn_opt(Fun, ProxySpecs, SpawnOpts) ->
-    StartFunc = proxy_start_func:make_spawn_func(Fun, SpawnOpts),
+    StartFunc = proxy_start_func:make_spawn_func(Fun, SpawnOpts -- [monitor]),
     erlang:spawn_opt(proxy_server, start_loop, [StartFunc, ProxySpecs], SpawnOpts). % TODO: 一部のオプション以外は切り取る
 
 %% @doc proxy を挟み option を指定して process を生成する.
 -spec spawn_opt(module(), fun_name(), args(), [proxy_spec()], spawn_options()) -> pid() | {pid(), reference()}.
 spawn_opt(Module, Function, Args, ProxySpecs, SpawnOpts) ->
-    StartFunc = proxy_start_func:make_spawn_func(Module, Function, Args, SpawnOpts),
+    StartFunc = proxy_start_func:make_spawn_func(Module, Function, Args, SpawnOpts -- [monitor]),
     erlang:spawn_opt(proxy_server, start_loop, [StartFunc, ProxySpecs], SpawnOpts).
 
 %% @doc proxy を挟んで 名前付きserver を起動する.

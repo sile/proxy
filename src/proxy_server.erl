@@ -129,7 +129,7 @@ start_real_process(StartFunc0, Driver0) ->
         true  ->
             case proxy_start_func:start_link(StartFunc1) of
                 {error, Reason2} -> terminate(Reason2, Driver1);
-                {ok, RealPid}    ->
+                {ok, RealPid} when is_pid(RealPid) ->
                     {HandleUpResult, Driver2} = proxy_driver:handle_up(RealPid, Driver1),
                     case HandleUpResult of
                         {stop, Reason3} -> terminate(Reason3, Driver2);
