@@ -125,3 +125,17 @@ multi_proxy_test_() ->
               end
       end}
     ].
+
+get_real_pid_test_() ->
+    [
+     {"実プロセスのPIDが取得できる",
+      fun () ->
+              Parent = self(),
+              ProxyPid = proxy:spawn_opt(fun () -> Parent ! {pid, self()}, timer:sleep(infinity) end, [], [link]),
+
+              receive
+                  {pid, RealPid} ->
+                      ?assertEqual(RealPid, proxy:get_real_pid(ProxyPid))
+              end
+      end}
+    ].

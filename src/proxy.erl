@@ -11,7 +11,8 @@
          spawn/2, spawn/4,
          spawn_opt/3, spawn_opt/5,
          start/4, start/5,
-         start_link/4, start_link/5
+         start_link/4, start_link/5,
+         get_real_pid/1
         ]).
 
 -export([
@@ -100,8 +101,9 @@
 %%----------------------------------------------------------------------------------------------------------------------
 %% @doc proxy_server モジュールにメッセージを送る.
 %%
-%% '$proxy_call' メッセージを送ると, proxy_server の Process ID を取得できる.
--spec call(pid(), '$proxy_call') -> ProxyServerPid::pid() | error.
+%% 'get_real_process' メッセージを送ると, proxy_server の Process ID を取得できる.
+%% (それ以外のメッセージには、現在非対応)
+-spec call(pid(), term()) -> ProxyServerPid::pid() | error.
 call(ProxyPid, Msg) ->
     Tag = make_ref(),
     From = {self(), Tag},
@@ -156,8 +158,18 @@ start(Module, Function, Args, ProxySpecs) ->
 start_link(Module, Function, Args, ProxySpecs) ->
     start_impl(undefined, true, Module, Function, Args, ProxySpecs).
 
+%% @doc 実プロセスのPIDを取得する
+%%
+%% NOTE: 基本的に実プロセスを直接操作することは望ましくないので、この関数はデバッグやテスト目的のために提供されている
+-spec get_real_pid(pid()) -> pid() | hibernate.
+get_real_pid(ProxyPid) ->
+    case call(ProxyPid, get_real_process) of
+        error   -> error(timeout, [ProxyPid]);
+        RealPid -> RealPid
+    end.
+
 %%----------------------------------------------------------------------------------------------------------------------
-%% Exported Functions
+%% Internal Functions
 %%----------------------------------------------------------------------------------------------------------------------
 -spec start_impl(proxy_name() | undefined, boolean(), module(), fun_name(), args(), [proxy_spec()]) -> {ok, pid()} | {error, Reason} when
       Reason :: {already_started, pid()} | term().
