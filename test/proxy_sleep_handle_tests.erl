@@ -71,5 +71,5 @@ lifetime_test_() ->
 %% @doc 現在時刻から指定時間後を返す.
 -spec now_after(integer(), integer(), integer()) -> erlang:timestamp().
 now_after(AddMega, AddSec, AddMicro) ->
-    {Mega, Sec, Micro} = now(),
+    {Mega, Sec, Micro} = os:timestamp(),
     {Mega + AddMega, Sec + AddSec, Micro + AddMicro}.

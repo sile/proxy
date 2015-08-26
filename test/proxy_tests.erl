@@ -112,7 +112,7 @@ multi_proxy_test_() ->
      {"複数のプロキシが登録できる",
       fun () ->
               Retry    = {proxy_restart, [{max_restart, 1000}]},
-              LifeTime = {proxy_lifetime, [{start_time, now()}]},
+              LifeTime = {proxy_lifetime, [{start_time, os:timestamp()}]},
               ProxyList = [Retry, LifeTime],
 
               %% このテストでは、複数プロキシを登録しても正常に起動できるかどうかだけを確認

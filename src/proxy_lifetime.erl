@@ -54,7 +54,7 @@ init(Options) ->
 %% @private
 -spec handle_arg(Args::[term()], #?STATE{}) -> {ok | hibernate, Args::[term()], #?STATE{}}.
 handle_arg(Args, State) ->
-    Delta = timer:now_diff(State#?STATE.start_time, now()),
+    Delta = timer:now_diff(State#?STATE.start_time, os:timestamp()),
     case Delta =< 0 of
         true  ->
             case State#?STATE.stop_time of

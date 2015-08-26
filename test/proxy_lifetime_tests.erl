@@ -35,5 +35,5 @@ sleep_infinity() ->
     timer:sleep(infinity).
 
 now_after(Ms) ->
-    {MegaSecs, Secs, MicroSecs} = now(),
+    {MegaSecs, Secs, MicroSecs} = os:timestamp(),
     {MegaSecs, Secs, MicroSecs + Ms * 1000}.
