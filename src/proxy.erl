@@ -12,7 +12,8 @@
          spawn_opt/3, spawn_opt/5,
          start/4, start/5,
          start_link/4, start_link/5,
-         get_real_pid/1
+         get_real_pid/1,
+         get_state/1
         ]).
 
 -export([
@@ -166,6 +167,16 @@ get_real_pid(ProxyPid) ->
     case call(ProxyPid, get_real_process) of
         error   -> error(timeout, [ProxyPid]);
         RealPid -> RealPid
+    end.
+
+%% @doc プロキシプロセスの状態を取得する
+%%
+%% デバッグ用.
+-spec get_state(pid()) -> proxy_server:state().
+get_state(ProxyPid) ->
+    case call(ProxyPid, get_proxy_server_state) of
+        error   -> error(timeout, [ProxyPid]);
+        State   -> State
     end.
 
 %%----------------------------------------------------------------------------------------------------------------------

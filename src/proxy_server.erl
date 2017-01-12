@@ -10,12 +10,11 @@
          loop/1
         ]).
 
+-export_type([state/0]).
+
 %%----------------------------------------------------------------------------------------------------------------------
 %% Types & Records
 %%----------------------------------------------------------------------------------------------------------------------
-%-type proxy() :: {module(), proxy_state()}.
-%-type proxy_state() :: term().
-
 -record(state,
         {
           tag = make_ref() :: reference(),
@@ -23,6 +22,8 @@
           real_pid :: pid() | hibernate,
           driver :: proxy_driver:state()
         }).
+
+-opaque state() :: #state{}.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported Functions
@@ -78,6 +79,9 @@ loop(State = #state{tag = Tag, real_pid = RealPid}) ->
             ?MODULE:loop(State2);
         {'$proxy_call', From, get_real_process} ->
             _ = reply(From, State#state.real_pid),
+            ?MODULE:loop(State);
+        {'$proxy_call', From, get_proxy_server_state} ->
+            _ = reply(From, State),
             ?MODULE:loop(State);
         {'__SYSTEM__', 'RESUME'} ->
             %% TODO: システムメッセージのハンドリングを仕組みはもっとちゃんとする

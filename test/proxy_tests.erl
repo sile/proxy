@@ -139,3 +139,14 @@ get_real_pid_test_() ->
               end
       end}
     ].
+
+get_state_test_() ->
+    [
+     {"プロキシプロセスの状態が取得できる",
+      fun () ->
+              ProxyPid = proxy:spawn_opt(fun () -> timer:sleep(infinity) end, [], [link]),
+
+              %% NOTE: 内部状態を仮定したテストはあまりよくはないけど、ここでは仕方がない
+              ?assertMatch({state, _, _, _, _}, proxy:get_state(ProxyPid))
+      end}
+    ].
