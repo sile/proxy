@@ -82,7 +82,7 @@ handle_up(_Pid, State) ->
       MessageIn :: {'EXIT', pid(), Reason} | term(),
       Reason :: term(),
       MessageOut :: term().
-handle_message({'EXIT', _Pid, Reason}, State) ->
+handle_message({'EXIT', _Pid, Reason}, State) when Reason =/= normal ->
     {stop, Reason, State};
 handle_message(Message, State) ->
     {ok, Message, State}.

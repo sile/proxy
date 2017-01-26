@@ -59,8 +59,6 @@ handle_up(_Pid, State) ->
 
 %% @private
 -spec handle_message(Message :: term(), state()) -> {ok, MessageOut :: term(), state()} | {stop, Reason :: term(), state()}.
-handle_message({'EXIT', _Pid, Reason}, State) ->
-    {stop, Reason, State};
 handle_message({'$gen_call', FromRef, Request}, #?STATE{is_running = false, call = CallFun} = State) when CallFun =/= undefined ->
     _ = case CallFun(Request) of
             {reply, Response} -> gen_server:reply(FromRef, Response);

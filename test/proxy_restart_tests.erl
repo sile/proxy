@@ -38,7 +38,8 @@ restart_test_() ->
                                   {Time, _} = timer:tc(fun() -> receive hello -> ok end end),
                                   Time
                               end || _ <- lists:seq(1, Count)],
-              [?assert(R >= 10 * 1000 andalso R < 30 * 1000) || R <- Result]
+              Allowance = 1.1, % 許容誤差
+              [?assert(R >= 10 * 1000 andalso R < 30 * 1000 * Allowance) || R <- Result]
       end},
      {"回数が残っている場合でもEXITシグナルを受け取ったら、実プロセスもダウンする: プロキシが一つの場合",
       fun () ->
@@ -50,7 +51,7 @@ restart_test_() ->
                                       timer:sleep(infinity)
                               end,
                               [{proxy_restart, [{max_restart, Count}]}]),
-              receive {real_pid, RealPid} -> ok end,
+              RealPid = receive {real_pid, Pid} -> Pid end,
 
               monitor(process, ProxyPid),
               monitor(process, RealPid),
@@ -70,7 +71,7 @@ restart_test_() ->
                               end,
                               [{proxy_restart, [{max_restart, Count}]},
                                {proxy_lifetime, []}]),
-              receive {real_pid, RealPid} -> ok end,
+              RealPid = receive {real_pid, Pid} -> Pid end,
 
               monitor(process, ProxyPid),
               monitor(process, RealPid),
@@ -78,5 +79,24 @@ restart_test_() ->
 
               ?assertDown(ProxyPid, shutdown),
               ?assertDown(RealPid, shutdown)
+      end},
+     {"proxyプロセスにlinkしているプロセスが死んだ場合の挙動は、標準に合わせる",
+      fun () ->
+              ProxyPid =
+                  proxy:spawn(fun () -> timer:sleep(infinity) end,
+                              [{proxy_restart, []},
+                               {proxy_sleep_handle, []}]),
+              monitor(process, ProxyPid),
+
+              %% linkプロセスがnormalで死んだ => proxyは死なない
+              {LinkPid0, _} = spawn_monitor(fun () -> link(ProxyPid), exit(normal) end),
+              ?assertDown(LinkPid0, normal),
+              timer:sleep(10), % 適当に待つ
+              ?assert(erlang:is_process_alive(ProxyPid)),
+
+              %% linkプロセスがnormal以外で死んだ => proxyも同じ理由で死ぬ
+              {LinkPid1, _} = spawn_monitor(fun () -> link(ProxyPid), exit(shutdown) end),
+              ?assertDown(LinkPid1, shutdown),
+              ?assertDown(ProxyPid, shutdown)
       end}
     ].
