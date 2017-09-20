@@ -50,7 +50,7 @@ restart_test_() ->
                                       timer:sleep(infinity)
                               end,
                               [{proxy_restart, [{max_restart, Count}]}]),
-              receive {real_pid, RealPid} -> ok end,
+              RealPid = receive {real_pid, Pid} -> Pid end,
 
               monitor(process, ProxyPid),
               monitor(process, RealPid),
@@ -70,7 +70,7 @@ restart_test_() ->
                               end,
                               [{proxy_restart, [{max_restart, Count}]},
                                {proxy_lifetime, []}]),
-              receive {real_pid, RealPid} -> ok end,
+              RealPid = receive {real_pid, Pid} -> Pid end,
 
               monitor(process, ProxyPid),
               monitor(process, RealPid),
