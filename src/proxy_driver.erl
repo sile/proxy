@@ -157,6 +157,8 @@ invoke_handle_arg(_Prev, Arg0, {Module, State0}) ->
       PrevResult :: term(),
       Result :: {ok, pid()} | {stop, Reason},
       Reason :: term().
+invoke_handle_up(stop, Reason, {Module, State}) ->
+    {{stop, Reason}, {Module, State}};
 invoke_handle_up(_Prev, RealPid, {Module, State0}) ->
     case Module:handle_up(RealPid, State0) of
         {stop, Reason, State1} -> {{stop, Reason}, {Module, State1}};
@@ -185,6 +187,8 @@ invoke_handle_up(_Prev, RealPid, {Module, State0}) ->
       ExitReason :: term(),
       Result :: {ok, ExitReason} | {stop, Reason} | {restart, After},
       Reason :: term().
+invoke_handle_down(stop, Reason, {Module, State}) ->
+    {{stop, Reason}, {Module, State}};
 invoke_handle_down(restart, After, State) ->
     {{restart, After}, State};
 invoke_handle_down(_Prev, ExitReason, {Module, State0}) ->
