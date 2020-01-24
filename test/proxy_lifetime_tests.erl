@@ -18,13 +18,12 @@ restart_test_() ->
               timer:sleep(110),
 
               ?assertMatch(Pid when is_pid(Pid), proxy:call(ProxyPid, get_real_process)),
-              timer:sleep(110),
-
               monitor(process, ProxyPid),
+
               receive
                   {'DOWN', _, _, ProxyPid, _} ->
                       ?assert(true)
-              after 0 ->
+              after 500 ->
                       ?assert(false)
               end
       end}
