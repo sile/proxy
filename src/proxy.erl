@@ -41,7 +41,7 @@
 
 %% proxy_server で実行する関数の引数を処理する.
 -callback handle_arg([term()], proxy_state()) ->
-    {stop, term()} | {ok, [term()], proxy_state()} | {remove_proxy, [term()], proxy_state()} |
+    {stop, term(), proxy_state()} | {ok, [term()], proxy_state()} | {remove_proxy, [term()], proxy_state()} |
     {swap_proxy, [term()], term(), proxy_state(), module(), proxy_arg()} |
     {hibernate, [term()], proxy_state()}.
 
