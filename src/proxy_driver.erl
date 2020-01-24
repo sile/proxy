@@ -259,6 +259,5 @@ invoke_terminate(Reason, {Module, State}) ->
     Module:terminate(Reason, State).
 
 -spec make_exception_reason(atom(), term()) -> term().
-%% -spec make_exception_reason(atom(), term()) -> proxy:exception_reason().
 make_exception_reason(Class, Reason) ->
     {'EXCEPTION', {Class, Reason, erlang:get_stacktrace()}}.
