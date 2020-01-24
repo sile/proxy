@@ -105,7 +105,7 @@
 %% `get_real_process' メッセージを送ると, proxy_server の Process ID を取得できる.
 %% `get_proxy_server_state' メッセージを送ると、proxy_serverの状態を取得できる.
 %% (それ以外のメッセージには、現在非対応)
--spec call(pid(), term()) -> ProxyServerPid::pid() | ProxyServerState::term() | error.
+-spec call(pid(), term()) -> (ProxyServerPid::pid()) | (ProxyServerState::term()) | error.
 call(ProxyPid, Msg) ->
     Tag = make_ref(),
     From = {self(), Tag},
