@@ -102,9 +102,10 @@
 %%----------------------------------------------------------------------------------------------------------------------
 %% @doc proxy_server モジュールにメッセージを送る.
 %%
-%% 'get_real_process' メッセージを送ると, proxy_server の Process ID を取得できる.
+%% `get_real_process' メッセージを送ると, proxy_server の Process ID を取得できる.
+%% `get_proxy_server_state' メッセージを送ると、proxy_serverの状態を取得できる.
 %% (それ以外のメッセージには、現在非対応)
--spec call(pid(), term()) -> ProxyServerPid::pid() | error.
+-spec call(pid(), term()) -> ProxyServerPid::pid() | ProxyServerState::term() | error.
 call(ProxyPid, Msg) ->
     Tag = make_ref(),
     From = {self(), Tag},
@@ -112,7 +113,7 @@ call(ProxyPid, Msg) ->
     receive
         {Tag, Response} -> Response
     after 50 ->
-            error %exit({timeout, call, [ProxyPid, Msg]})
+            error
     end.
 
 %% @doc proxy を挟んで process を生成する.
