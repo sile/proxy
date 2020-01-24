@@ -1,4 +1,3 @@
-%% coding: latin-1
 -module(proxy_lifetime_tests).
 
 -include_lib("eunit/include/eunit.hrl").
