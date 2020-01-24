@@ -21,6 +21,16 @@
 %%----------------------------------------------------------------------------------------------------------------------
 %% Macros & Records & Types
 %%----------------------------------------------------------------------------------------------------------------------
+-ifdef('OTP_RELEASE').
+%% The 'OTP_RELEASE' macro introduced at OTP-21,
+%% so we can use it for detecting whether the Erlang compiler supports new try/catch syntax or not.
+-define(CAPTURE_STACKTRACE, :__StackTrace).
+-define(GET_STACKTRACE, __StackTrace).
+-else.
+-define(CAPTURE_STACKTRACE, ).
+-define(GET_STACKTRACE, erlang:get_stacktrace()).
+-endif.
+
 -define(STATE, ?MODULE).
 
 -record(?STATE,
@@ -50,8 +60,8 @@ init(ProxySpecs) ->
                       ignore         -> {ok, Acc};
                       {ok, Proxy}    -> {ok, [Proxy | Acc]}
                   catch
-                      Class:Reason ->
-                          {{stop, make_exception_reason(Class, Reason)}, Acc}
+                      Class:Reason ?CAPTURE_STACKTRACE ->
+                          {{stop, make_exception_reason(Class, Reason, ?GET_STACKTRACE)}, Acc}
                   end
           end,
           {ok, []},
@@ -117,7 +127,8 @@ invoke_proxy_list(Fun, Arg, State) ->
                       {Result}         -> {Result, Acc};
                       {Result, Proxy1} -> {Result, [Proxy1 | Acc]}
                   catch
-                      Class:Reason -> {{stop, make_exception_reason(Class, Reason)}, [Proxy0 | Acc]}
+                      Class:Reason ?CAPTURE_STACKTRACE ->
+                          {{stop, make_exception_reason(Class, Reason, ?GET_STACKTRACE)}, [Proxy0 | Acc]}
                   end
           end,
           {{ok, Arg}, []},
@@ -251,13 +262,14 @@ swap_proxy(SwapReason, Proxy, NewModule, NewArg) ->
         TerminateValue = invoke_terminate(SwapReason, Proxy),
         invoke_init({NewModule, {NewArg, TerminateValue}})
     catch
-        ExClass:ExReason -> {stop, make_exception_reason(ExClass, ExReason)}
+        ExClass:ExReason ?CAPTURE_STACKTRACE ->
+            {stop, make_exception_reason(ExClass, ExReason, ?GET_STACKTRACE)}
     end.
 
 -spec invoke_terminate(term(), proxy()) -> term().
 invoke_terminate(Reason, {Module, State}) ->
     Module:terminate(Reason, State).
 
--spec make_exception_reason(atom(), term()) -> term().
-make_exception_reason(Class, Reason) ->
-    {'EXCEPTION', {Class, Reason, erlang:get_stacktrace()}}.
+-spec make_exception_reason(atom(), term(), term()) -> term().
+make_exception_reason(Class, Reason, Trace) ->
+    {'EXCEPTION', {Class, Reason, Trace}}.
