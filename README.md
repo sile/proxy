@@ -1,6 +1,10 @@
 proxy
 =====
 
+[![Build Status](https://travis-ci.org/sile/proxy.svg?branch=master)](https://travis-ci.org/sile/proxy)
+[![Code Coverage](https://codecov.io/gh/sile/proxy/branch/master/graph/badge.svg)](https://codecov.io/gh/sile/proxy/branch/master)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 `proxy` は，Erlangのクライアントプロセスとサーバプロセスの間に中継役のプロセスを挟むための仕組みを提供するライブラリである．この中継役のプロセスを以後単に **中継プロセス** と呼ぶことにする．中継プロセスでは “状態を保持する，小さい `gen_server` コールバックのようなモジュール” がいくつか数珠つなぎになって1個のプロセスで稼働する．これらのモジュールを **中継モジュール** と呼ぶことにする．また，これと対比して中継される先にあるサーバプロセスを **本体プロセス** と呼ぶことにする．
 
 ```
